@@ -212,6 +212,8 @@ class Continy implements Container
             }
         } elseif (is_callable($args)) {
             $args = (array)call_user_func($args, $this);
+        } elseif (!is_array($args)) {
+            $args = (array)$args;
         }
 
         // As of PHP 8.0+, unpacking array with string keys are possible.
