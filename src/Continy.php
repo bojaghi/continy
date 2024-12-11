@@ -99,6 +99,7 @@ class Continy implements Container
      * @used-by __construct()
      *
      * @return void
+     * @throws ContinyException
      */
     protected function initialize(array $hooks, array $bindings, array $modules): void
     {
@@ -114,6 +115,20 @@ class Continy implements Container
 
         // Planned hooks.
         $hooks = wp_parse_args($hooks, ['admin_init' => 0, 'init' => 0]);
+
+        if (isset($modules['_'])) {
+            $items = $modules['_'];
+            unset($modules['_']);
+
+            foreach ($items as $alias) {
+                if (is_callable($alias)) {
+                    $this->call($alias);
+                } elseif (isset($this->resolved[$alias])) {
+                    call_user_func($this->bindModule($alias));
+                }
+            }
+
+        }
 
         // Module initialization.
         foreach ($modules as $hook => $groups) {

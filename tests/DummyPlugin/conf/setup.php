@@ -30,6 +30,10 @@ return [
 
     // Modules setting
     'modules'   => [
+        '_'    => [
+            function () {
+            },
+        ],
         'init' => [
             Continy::PR_DEFAULT => [
                 'modCPT',
