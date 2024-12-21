@@ -1,6 +1,14 @@
 # CHANGELOG
 
+## 1.0.3
+
+2024-12-21
+
+- Export `Container` interface to `Bojaghi/Contract` package.
+
 ## 1.0.2
+
+2024-12-11
 
 - Support underscore(_) built-in modules.
 

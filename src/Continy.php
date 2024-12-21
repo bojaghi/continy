@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Bojaghi\Continy;
 
+use Bojaghi\Contract\Container;
 use ReflectionClass;
 use ReflectionFunction;
 use ReflectionMethod;
