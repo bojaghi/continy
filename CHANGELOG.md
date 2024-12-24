@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 1.1.0
+
+2024-12-25
+
+- Support incomplete argument setup.
+
 ## 1.0.3
 
 2024-12-21

@@ -23,16 +23,16 @@ use ReflectionMethod;
 class Continy implements Container
 {
     /* Priority constants */
-    public const PR_URGENT = -10000;
+    public const PR_URGENT    = -10000;
     public const PR_VERY_HIGH = 1;
-    public const PR_HIGH = 5;
-    public const PR_DEFAULT = 10;
-    public const PR_LOW = 50;
-    public const PR_VERY_LOW = 100;
-    public const PR_LAZY = 10000;
+    public const PR_HIGH      = 5;
+    public const PR_DEFAULT   = 10;
+    public const PR_LOW       = 50;
+    public const PR_VERY_LOW  = 100;
+    public const PR_LAZY      = 10000;
 
     private string $mainFile = '';
-    private string $version = '';
+    private string $version  = '';
 
     /**
      * Component storage.
@@ -221,15 +221,16 @@ class Continy implements Container
 
         $args = $this->arguments[$fqcn] ?? $this->arguments[$fqcnOrAlias] ?? null;
         if (is_null($args)) {
-            $args      = [];
-            $typeNames = $this->detectParams($fqcn);
-            foreach ($typeNames as $typeName) {
-                $args[] = $this->get($typeName);
-            }
+            $args = [];
         } elseif (is_callable($args)) {
             $args = (array)call_user_func($args, $this);
         } elseif (!is_array($args)) {
             $args = (array)$args;
+        }
+
+        $typeNames = $this->detectParams($fqcn, $args);
+        foreach ($typeNames as $typeName) {
+            $args[] = $this->get($typeName);
         }
 
         // As of PHP 8.0+, unpacking array with string keys are possible.
@@ -374,10 +375,13 @@ class Continy implements Container
     }
 
     /**
+     * @param array|callable|string $target Class name or method name to detect parameters.
+     * @param array                 $args   Initial arguments
+     *
      * @return string[] array of FQCN
      * @throws ContinyException
      */
-    protected function detectParams(callable|array|string $target): array
+    protected function detectParams(callable|array|string $target, array $args = []): array
     {
         $output = [];
 
@@ -395,6 +399,14 @@ class Continy implements Container
                 $parameters = $reflection->getParameters();
             } else {
                 throw new ContinyException("'$target' is not callable");
+            }
+
+            // Continy allows incomplete arguments found in the configuration.
+            // Code below let Continy guess missing arguments.
+            $lenArgs   = count($args);
+            $lenParams = count($parameters);
+            if (0 < $lenArgs) {
+                $parameters = array_slice($parameters, $lenArgs);
             }
 
             foreach ($parameters as $parameter) {

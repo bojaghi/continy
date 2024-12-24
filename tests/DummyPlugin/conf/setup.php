@@ -66,6 +66,8 @@ return [
         )                                       => [
             'x' => 'Keyboard',
             'y' => 'Mouse',
-        ]
+        ],
+        // Incomplete arguments
+        DummyPlugin\IncompleteTester::class => [3],
     ],
 ];

@@ -3,7 +3,7 @@
 namespace Bojaghi\Continy\Tests;
 
 use Bojaghi\Continy\Continy;
-use Bojaghi\Continy\ContinyException;
+use Bojaghi\Continy\Tests\DummyPlugin\IncompleteTester;
 use Bojaghi\Continy\Tests\DummyPlugin\Supports\DummySupport;
 use WP_UnitTestCase;
 use function Bojaghi\Continy\Tests\DummyPlugin\getTestDummyPlugin;
@@ -174,5 +174,14 @@ class TestDummyPlugin extends WP_UnitTestCase
             \Bojaghi\Continy\Tests\DummyPlugin\ConstructorCall\ConstructorCall::class,
             $storage,
         );
+    }
+
+    public function test_incompleteArguments(): void
+    {
+        $instance = $this->continy->get(
+            \Bojaghi\Continy\Tests\DummyPlugin\IncompleteTester::class
+        );
+
+        $this->assertInstanceOf(IncompleteTester::class, $instance);
     }
 }
