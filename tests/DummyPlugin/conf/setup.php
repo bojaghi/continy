@@ -13,8 +13,9 @@ return [
 
     // Hooks definition
     'hooks'     => [
-        'admin_init' => 0,
-        'init'       => 0,
+        'admin_init'  => 0,
+        'init'        => 0,
+        'test_action' => 0,
     ],
 
     // Objects binding
@@ -26,6 +27,9 @@ return [
         DummyPlugin\ReflectionInjection\IDependencyTwoOne::class => DummyPlugin\ReflectionInjection\DependencyTwoOne::class,
         // Support binding
         'ds'                                                     => DummyPlugin\Supports\DummySupport::class,
+
+        // aliasedModule: continy->get() method should successfully grab the original class name by alias.
+        'aliasedModule'                                          => DummyPlugin\Modules\AliasedModule::class,
     ],
 
     // Modules setting
@@ -68,6 +72,9 @@ return [
             'y' => 'Mouse',
         ],
         // Incomplete arguments
-        DummyPlugin\IncompleteTester::class => [3],
+        DummyPlugin\IncompleteTester::class     => [3],
+
+        // Aliased
+        'aliasedModule' => ['success'],
     ],
 ];

@@ -45,6 +45,16 @@ class Continy implements Container
     private array $storage = [];
 
     /**
+     * Array of alias
+     *
+     * Key:   FQCN
+     * Value: alias
+     *
+     * @var array
+     */
+    private array $aliases = [];
+
+    /**
      * Array of component names that are resolved.
      *
      * Key:   FQCN, or alias string
@@ -112,6 +122,9 @@ class Continy implements Container
         // Binding initialization.
         foreach ($bindings as $alias => $fqcn) {
             $this->resolved[$alias] = $fqcn;
+            if ($alias !== $fqcn) {
+                $this->aliases[$fqcn] = $alias;
+            }
         }
 
         // Planned hooks.
@@ -219,7 +232,14 @@ class Continy implements Container
             return $this->storage[$fqcn];
         }
 
-        $args = $this->arguments[$fqcn] ?? $this->arguments[$fqcnOrAlias] ?? null;
+        // Check alias
+        $alias = $this->aliases[$fqcn] ?? null;
+        if ($alias && isset($this->arguments[$alias])) {
+            $args = $this->arguments[$alias];
+        } else {
+            $args = $this->arguments[$fqcn] ?? $this->arguments[$fqcnOrAlias] ?? null;
+        }
+
         if (is_null($args)) {
             $args = [];
         } elseif (is_callable($args)) {

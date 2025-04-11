@@ -4,6 +4,7 @@ namespace Bojaghi\Continy\Tests;
 
 use Bojaghi\Continy\Continy;
 use Bojaghi\Continy\Tests\DummyPlugin\IncompleteTester;
+use Bojaghi\Continy\Tests\DummyPlugin\Supports\AliasedModuleSupport;
 use Bojaghi\Continy\Tests\DummyPlugin\Supports\DummySupport;
 use WP_UnitTestCase;
 use function Bojaghi\Continy\Tests\DummyPlugin\getTestDummyPlugin;
@@ -179,9 +180,24 @@ class TestDummyPlugin extends WP_UnitTestCase
     public function test_incompleteArguments(): void
     {
         $instance = $this->continy->get(
-            \Bojaghi\Continy\Tests\DummyPlugin\IncompleteTester::class
+            \Bojaghi\Continy\Tests\DummyPlugin\IncompleteTester::class,
         );
 
         $this->assertInstanceOf(IncompleteTester::class, $instance);
+    }
+
+    /**
+     * Test if continy can instantiate aliased module by FQCN.
+     *
+     * - In 'bindings' section of settings, you can find 'aliasedModule' section.
+     * - In 'arguments' section of settings, you can find 'aliasModule' section.
+     * - In this method continy tries to get the object by FQCN. It should be successful
+     *
+     * @return void
+     */
+    public function test_aliasedModule(): void
+    {
+        $value = $this->continy->get(AliasedModuleSupport::class)->getValue();
+        $this->assertEquals('success', $value);
     }
 }

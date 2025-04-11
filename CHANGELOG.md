@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 1.1.1
+
+2025-04-12
+
+- Fix error when continy tries to instantiate by FQCN, but the class is aliased in the configuration.
+- Update vendor libraries.
+
 ## 1.1.0
 
 2024-12-25
