@@ -470,7 +470,7 @@ class Continy implements Container
                         foreach ($unionTypes as $type) {
                             if ($type->getName() == $defaultValueType) {
                                 $output[] = [
-                                    'type'  => is_scalar($defaultValue) ? 'value' : 'type',
+                                    'type'  => is_scalar($defaultValue) || is_object($defaultValue) ? 'value' : 'type',
                                     'value' => $defaultValue,
                                 ];
                                 break; // Done. Goto next $parameter.

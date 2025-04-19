@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 1.1.3
+
+2025-04-19
+
+- Fix errors when injecting union type with default parameter.
+
 ## 1.1.2
 
 2025-04-19
