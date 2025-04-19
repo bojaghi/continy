@@ -8,6 +8,7 @@ use Bojaghi\Contract\Container;
 use ReflectionClass;
 use ReflectionFunction;
 use ReflectionMethod;
+use ReflectionUnionType;
 
 /**
  * Continy - A tiny container class for WordPress plugin and theme development that supports really simple D.I.
@@ -248,9 +249,13 @@ class Continy implements Container
             $args = (array)$args;
         }
 
-        $typeNames = $this->detectParams($fqcn, $args);
-        foreach ($typeNames as $typeName) {
-            $args[] = $this->get($typeName);
+        $detectedParams = $this->detectParams($fqcn, $args);
+        foreach ($detectedParams as $detectedParam) {
+            if ('type' === $detectedParam['type']) {
+                $args[] = $this->get($detectedParam['value']);
+            } elseif ('value' === $detectedParam['type']) {
+                $args[] = $detectedParam['value'];
+            }
         }
 
         // As of PHP 8.0+, unpacking array with string keys are possible.
@@ -314,14 +319,28 @@ class Continy implements Container
             throw new ContinyException("'$id' is required");
         }
 
-        if (!$this->has($id)) {
-            throw new ContinyNotFoundException(sprintf("The container does not have '%s' item.", $id));
-        }
-
         if (func_num_args() > 1) {
             $constructorCall = func_get_arg(1);
         } else {
             $constructorCall = false;
+        }
+
+        if (str_contains($id, '|')) {
+            $ids = explode('|', $id);
+            foreach ($ids as $id) {
+                try {
+                    $instance = $this->get($id, $constructorCall);;
+                    if ($instance) {
+                        return $instance;
+                    }
+                } catch (ContinyException|ContinyNotFoundException $e) {
+                    continue;
+                }
+            }
+        }
+
+        if (!$this->has($id)) {
+            throw new ContinyNotFoundException(sprintf("The container does not have '%s' item.", $id));
         }
 
         return $this->instantiate($id, $constructorCall);
@@ -381,8 +400,15 @@ class Continy implements Container
             if (isset($this->arguments[$key])) {
                 $args = $this->arguments[$key];
             } else {
-                $typeNames = $this->detectParams($callable);
-                $args      = array_map(fn($typeName) => $this->get($typeName), $typeNames);
+                $detectedParams = $this->detectParams($callable);
+                $args           = [];
+                foreach ($detectedParams as $detectedParam) {
+                    if ('type' === $detectedParam['type']) {
+                        $args[] = $this->get($detectedParam['value']);
+                    } elseif ('value' === $detectedParam['type']) {
+                        $args[] = $detectedParam['value'];
+                    }
+                }
             }
             if ($args && is_callable($args)) {
                 $args = (array)call_user_func_array($args, [$this, $callable, $key]);
@@ -398,7 +424,7 @@ class Continy implements Container
      * @param array|callable|string $target Class name or method name to detect parameters.
      * @param array                 $args   Initial arguments
      *
-     * @return string[] array of FQCN
+     * @return array{type: string, value: mixed}[]
      * @throws ContinyException
      */
     protected function detectParams(callable|array|string $target, array $args = []): array
@@ -423,41 +449,84 @@ class Continy implements Container
 
             // Continy allows incomplete arguments found in the configuration.
             // Code below let Continy guess missing arguments.
-            $lenArgs   = count($args);
-            $lenParams = count($parameters);
+            $lenArgs = count($args);
             if (0 < $lenArgs) {
                 $parameters = array_slice($parameters, $lenArgs);
             }
 
             foreach ($parameters as $parameter) {
-                $typeName   = $parameter->getType()->getName();
-                $isNullable = $parameter->allowsNull();
+                if ($parameter->getType() instanceof ReflectionUnionType) {
 
-                if ($parameter->getType()->isBuiltin()) {
-                    if ($parameter->isOptional()) {
-                        $output[] = $parameter->getDefaultValue();
-                    } elseif ($isNullable) {
-                        $output[] = null;
-                    } else {
-                        throw new ContinyException(
-                            sprintf(
-                                "Error while injecting parameter '%s' to '%s'." .
-                                " Built-in type should have default value or can be nullish," .
-                                " or invoke an explicit injection function.",
-                                $parameter->getName(),
-                                self::formatName($target),
-                            ),
+                    $unionTypes = $parameter->getType()->getTypes();
+                    $isOptional = $parameter->isOptional();
+
+                    if ($isOptional) {
+                        // If is optional, find the best fit.
+                        $defaultValue     = $parameter->getDefaultValue();
+                        $defaultValueType = is_scalar($defaultValue) ? gettype($defaultValue) : get_class(
+                            $defaultValue
                         );
+
+                        foreach ($unionTypes as $type) {
+                            if ($type->getName() == $defaultValueType) {
+                                $output[] = [
+                                    'type'  => is_scalar($defaultValue) ? 'value' : 'type',
+                                    'value' => $defaultValue,
+                                ];
+                                break; // Done. Goto next $parameter.
+                            }
+                        }
+                    } else {
+                        $subOutput = [];
+                        // Let the container choose later.
+                        foreach ($unionTypes as $type) {
+                            if ($type->allowsNull() && str_starts_with($type->getName(), '?')) {
+                                $subOutput[] = substr($type->getName(), 1);
+                            } else {
+                                $subOutput[] = $type->getName();
+                            }
+                        }
+                        $output[] = [
+                            'type'  => 'type',
+                            'value' => implode('|', $subOutput),
+                        ];
                     }
-                    continue;
+                } else {
+                    $singularType = $parameter->getType();
+                    if ($singularType->isBuiltin()) {
+                        if ($parameter->isOptional()) {
+                            $output[] = [
+                                'type'  => 'value',
+                                'value' => $parameter->getDefaultValue(),
+                            ];
+                        } elseif ($parameter->allowsNull()) {
+                            $output[] = null;
+                        } else {
+                            throw new ContinyException(
+                                sprintf(
+                                    "Error while injecting parameter '%s' to '%s'." .
+                                    " Built-in type should have default value or can be nullish," .
+                                    " or invoke an explicit injection function.",
+                                    $parameter->getName(),
+                                    self::formatName($target),
+                                ),
+                            );
+                        }
+                    } else {
+                        // Remove heading '?' for nullish parameters.
+                        if ($singularType->allowsNull() && str_starts_with($singularType->getName(), '?')) {
+                            $output[] = [
+                                'type'  => 'type',
+                                'value' => substr($singularType->getName(), 1),
+                            ];
+                        } else {
+                            $output[] = [
+                                'type'  => 'type',
+                                'value' => $singularType->getName(),
+                            ];
+                        }
+                    }
                 }
-
-                // Remove heading '?' for nullish parameters.
-                if ($isNullable && str_starts_with($typeName, '?')) {
-                    $typeName = substr($typeName, 1);
-                }
-
-                $output[] = $typeName;
             }
         } catch (\ReflectionException $e) {
             throw new ContinyException('ReflectionException: ' . $e->getMessage(), $e->getCode(), $e);
