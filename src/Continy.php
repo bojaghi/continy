@@ -138,7 +138,7 @@ class Continy implements Container
             foreach ($items as $alias) {
                 if (is_callable($alias)) {
                     $this->call($alias);
-                } elseif (isset($this->resolved[$alias])) {
+                } elseif (isset($this->resolved[$alias]) || class_exists($alias)) {
                     call_user_func($this->bindModule($alias));
                 }
             }

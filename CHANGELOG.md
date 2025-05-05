@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 1.1.4
+
+2025-05-05
+
+- Fix error when underscored(_) modules were not loaded correctly if class names are used directly.
+
 ## 1.1.3
 
 2025-04-19

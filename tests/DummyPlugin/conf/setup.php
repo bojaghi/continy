@@ -35,14 +35,11 @@ return [
     // Modules setting
     'modules'   => [
         '_'    => [
-            function () {
-            },
+            DummyPlugin\Modules\_FQCNModule::class,
         ],
         'init' => [
             Continy::PR_DEFAULT => [
                 'modCPT',
-                function () {
-                },
             ],
         ],
     ],
