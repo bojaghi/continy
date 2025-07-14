@@ -60,18 +60,19 @@ return [
         'ds'                                    => [
             'foo' => 20,
         ],
+
         // FunctionalCall
-        Continy::concatName(
-            DummyPlugin\FunctionCall\FunctionCall::class,
-            'configuredCall',
-        )                                       => [
+        DummyPlugin\FunctionCall\FunctionCall::class .
+        '::' .
+        'configuredCall'                        => [
             'x' => 'Keyboard',
             'y' => 'Mouse',
         ],
+
         // Incomplete arguments
         DummyPlugin\IncompleteTester::class     => [3],
 
         // Aliased
-        'aliasedModule' => ['success'],
+        'aliasedModule'                         => ['success'],
     ],
 ];
