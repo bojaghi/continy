@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 1.2.3
+
+2025-07-15
+
+- Add try-catch block inside `Continy::parseCallback`.
+
 ## 1.2.2
 
 2025-07-14

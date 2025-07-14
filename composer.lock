@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "38784fb8b70fd6a6e63edaba79a9cd5b",
+    "content-hash": "f6f29f95db0ad5a9d4a4bd94612e8f08",
     "packages": [
         {
             "name": "bojaghi/contract",
@@ -108,16 +108,16 @@
     "packages-dev": [
         {
             "name": "bojaghi/dictionary",
-            "version": "1.0.0",
+            "version": "1.0.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/bojaghi/dictionary.git",
-                "reference": "70130f9a15db4e57a6bd8811e36b02d01d62f243"
+                "reference": "110d3877d928fc5bacc97fb8b4033f1b02624439"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/bojaghi/dictionary/zipball/70130f9a15db4e57a6bd8811e36b02d01d62f243",
-                "reference": "70130f9a15db4e57a6bd8811e36b02d01d62f243",
+                "url": "https://api.github.com/repos/bojaghi/dictionary/zipball/110d3877d928fc5bacc97fb8b4033f1b02624439",
+                "reference": "110d3877d928fc5bacc97fb8b4033f1b02624439",
                 "shasum": ""
             },
             "type": "library",
@@ -135,9 +135,9 @@
             "homepage": "https://github.com/bojaghi/dictionary",
             "support": {
                 "issues": "https://github.com/bojaghi/dictionary/issues",
-                "source": "https://github.com/bojaghi/dictionary/tree/1.0.0"
+                "source": "https://github.com/bojaghi/dictionary/tree/1.0.1"
             },
-            "time": "2025-07-14T05:26:24+00:00"
+            "time": "2025-07-14T06:05:51+00:00"
         },
         {
             "name": "bojaghi/wp-tests",

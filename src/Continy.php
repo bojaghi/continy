@@ -9,6 +9,7 @@ use ReflectionClass;
 use ReflectionFunction;
 use ReflectionMethod;
 use ReflectionUnionType;
+use Throwable;
 
 /**
  * Continy - A tiny container class for WordPress plugin and theme development that supports really simple D.I.
@@ -554,8 +555,6 @@ class Continy implements Container
      * @param string|array|callable $callback
      *
      * @return callable|null
-     * @throws ContinyException
-     * @throws ContinyNotFoundException
      */
     public function parseCallback(string|array|callable $callback): ?callable
     {
@@ -573,27 +572,31 @@ class Continy implements Container
 
         $result = null;
 
-        if (2 === count($split)) {
-            // 'foo@bar' style.
-            $cls    = $split[0];
-            $method = $split[1];
+        try {
+            if (2 === count($split)) {
+                // 'foo@bar' style.
+                $cls    = $split[0];
+                $method = $split[1];
 
-            if (is_callable([$cls, $method])) {
-                // Maybe static method.
-                $result = [$cls, $method];
-            } else {
-                // Alias, or FQCN
-                $object = $this->get($cls);
-                if (is_callable([$object, $method])) {
-                    $result = [$object, $method];
+                if (is_callable([$cls, $method])) {
+                    // Maybe static method.
+                    $result = [$cls, $method];
+                } else {
+                    // Alias, or FQCN
+                    $object = $this->get($cls);
+                    if (is_callable([$object, $method])) {
+                        $result = [$object, $method];
+                    }
+                }
+            } elseif (1 === count($split)) {
+                // It may be a class name, a container alias.
+                $instance = $this->get($split[0]);
+                if (is_callable($instance)) {
+                    $result = $instance;
                 }
             }
-        } elseif (1 === count($split)) {
-            // It may be a class name, a container alias.
-            $instance = $this->get($split[0]);
-            if (is_callable($instance)) {
-                $result = $instance;
-            }
+        } catch (Throwable) {
+            return null;
         }
 
         return $result;
