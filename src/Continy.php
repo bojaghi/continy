@@ -560,6 +560,7 @@ class Continy implements Container
     public function parseCallback(string|array|callable $callback): ?callable
     {
         if (is_callable($callback)) {
+            // string, callable
             return $callback;
         }
 
@@ -570,32 +571,32 @@ class Continy implements Container
             $split = $callback;
         }
 
+        $result = null;
+
         if (2 === count($split)) {
             // 'foo@bar' style.
             $cls    = $split[0];
             $method = $split[1];
 
-            if (class_exists($cls) && method_exists($cls, $method)) {
-                if (is_callable([$cls, $method])) {
-                    // Static methods.
-                    return [$cls, $method];
-                }
-                // Common methods, the class needs to be instantiated,
-                // Or $cls may be an alias for the container.
-                $instance = $this->get($cls);
-                if (is_callable([$instance, $method])) {
-                    return [$instance, $method];
+            if (is_callable([$cls, $method])) {
+                // Maybe static method.
+                $result = [$cls, $method];
+            } else {
+                // Alias, or FQCN
+                $object = $this->get($cls);
+                if (is_callable([$object, $method])) {
+                    $result = [$object, $method];
                 }
             }
         } elseif (1 === count($split)) {
             // It may be a class name, a container alias.
             $instance = $this->get($split[0]);
             if (is_callable($instance)) {
-                return $instance;
+                $result = $instance;
             }
         }
 
-        return null;
+        return $result;
     }
 
     public function getMain(): string

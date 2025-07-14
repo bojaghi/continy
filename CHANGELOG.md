@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 1.2.2
+
+2025-07-14
+
+- Fix `Continy::parseCallback` bug.
+
 ## 1.2.1
 
 2025-07-14
