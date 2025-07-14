@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Bojaghi\Continy;
 
-class ContinyFactory
+class ContinyFactory implements \Bojaghi\Contract\ContinyFactory
 {
     /**
-     * @throws \Bojaghi\Continy\ContinyException
+     * @throws ContinyException
      */
     public static function create(array|string $setup): Continy
     {
