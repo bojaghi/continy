@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 1.1.5
+
+2025-07-14
+
+- Update `bojaghi/contract` to 1.2. No breaking changes.
+- Replace `custom.dic` to `bojaghi/dictionary`'s version.
+
 ## 1.1.4
 
 2025-05-05
