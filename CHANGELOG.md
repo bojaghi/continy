@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 1.2.4
+
+2025-08-12
+
+- Add test for missing arguments completion.
+- Fix namespace error.
+
 ## 1.2.3
 
 2025-07-15

@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Bojaghi\Continy;
 
-class ContinyFactory implements \Bojaghi\Contract\ContinyFactory
+use Bojaghi\Contract\ContinyFactory as ContinyFactoryInterface;
+
+class ContinyFactory implements ContinyFactoryInterface
 {
     /**
      * @throws ContinyException
