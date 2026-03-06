@@ -154,10 +154,17 @@ class Continy implements Container
                 $priority = (int)$priority;
 
                 foreach ($items as $alias) {
+                    if (is_string($alias) && str_contains($alias, '@')) {
+                        $_alias = $alias;
+                        $split = explode('@', $alias, 2);
+                        $alias = $split[0];
+                    } else {
+                        $_alias = null;
+                    }
                     if (is_callable($alias)) {
                         $callback = $alias;
                     } elseif (isset($this->resolved[$alias])) {
-                        $callback = $this->bindModule($alias);
+                        $callback = $this->bindModule($_alias ?: $alias);
                     } else {
                         $callback = null;
                     }
@@ -172,8 +179,10 @@ class Continy implements Container
     protected function bindModule(callable|string $alias): \Closure
     {
         return function () use ($alias) {
+            $args  = func_get_args();
+
             if (is_callable($alias)) {
-                call_user_func_array($alias, func_get_args());
+                call_user_func_array($alias, $args);
 
                 return;
             }
@@ -184,8 +193,12 @@ class Continy implements Container
             try {
                 if (1 === $count) {
                     if (is_callable($split[0])) {
-                        call_user_func_array($split[0], func_get_args());
+                        call_user_func_array($split[0], $args);
                     } else {
+                        // This ensures that we can automatically supply the arguments to class constructor.
+                        if ($args && !isset($this->arguments[$split[0]])) {
+                            $this->arguments[$split[0]] = $args;
+                        }
                         $this->instantiate($split[0]);
                     }
                 } else {

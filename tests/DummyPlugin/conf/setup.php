@@ -13,9 +13,11 @@ return [
 
     // Hooks definition
     'hooks'     => [
-        'admin_init'  => 0,
-        'init'        => 0,
-        'test_action' => 0,
+        'admin_init'              => 0,
+        'init'                    => 0,
+        'test_action'             => 0,
+        'method_call_action'      => 0,
+        'callback_with_arguments' => 2,
     ],
 
     // Objects binding
@@ -30,18 +32,34 @@ return [
 
         // aliasedModule: continy->get() method should successfully grab the original class name by alias.
         'aliasedModule'                                          => DummyPlugin\Modules\AliasedModule::class,
+
+        // Method call test
+        'methodCall'                                             => DummyPlugin\Modules\MethodCallModule::class,
+
+        // Callback with arguments test
+        'callback-with-arguments'                                => DummyPlugin\Modules\CallbackWithArguments::class,
     ],
 
     // Modules setting
     'modules'   => [
-        '_'    => [
+        '_'                  => [
             DummyPlugin\Modules\_FQCNModule::class,
         ],
-        'init' => [
+        'init'               => [
             Continy::PR_DEFAULT => [
                 'modCPT',
             ],
         ],
+        'method_call_action' => [
+            Continy::PR_DEFAULT => [
+                'methodCall@testMethod', // Method call test
+            ],
+        ],
+        'callback_with_arguments' => [
+            Continy::PR_DEFAULT => [
+                'callback-with-arguments',
+            ],
+        ]
     ],
 
     // Argument injection

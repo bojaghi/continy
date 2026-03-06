@@ -134,8 +134,9 @@ return [
      * 값: 콜백 함수에서 허용하는 인자 수, 0 이상의 정수 
      */
     'hooks' => [
-        'admin_init' => 0,
-        'init'       => 0,
+        'admin_init'     => 0,
+        'current_screen' => 1
+        'init'           => 0,
     ],
     
     /**
@@ -147,7 +148,9 @@ return [
     'bindings' => [
         'myModule'  => MyModule::class,
         'foo'       => Foo::class,
-        IBar::class => BarImpl::class, 
+        IBar::class => BarImpl::class,
+        'bax'       => Baz::class,
+        'screen'    => Screen::class, 
     ],
       
     /**
@@ -177,6 +180,12 @@ return [
                 // 모듈 목록
                 'myModule',
                 'foo',
+                'baz@callMe', // 1.2.5 부터는 메소드 호출도 가능
+            ],
+        ],
+        'current_screen' => [
+            Continy::PR_LOW => [
+                'screen' // 1.2.5 부터 생성자 인수로 콜백 함수의 인자가 넘겨짐, arguments에는 해당 바인딩이 키가 없어야 함.
             ],
         ],
         // 혹 이름, 모듈 우선순위, 모듈의 목록 ...  

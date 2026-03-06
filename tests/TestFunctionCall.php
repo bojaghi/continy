@@ -7,6 +7,7 @@ use Bojaghi\Continy\ContinyException;
 use Bojaghi\Continy\Tests\DummyPlugin\FunctionCall\Dep_A;
 use Bojaghi\Continy\Tests\DummyPlugin\FunctionCall\Dep_B;
 use Bojaghi\Continy\Tests\DummyPlugin\FunctionCall\FunctionCall;
+use Bojaghi\Continy\Tests\DummyPlugin\Modules\MethodCallModule;
 use WP_UnitTestCase;
 use function Bojaghi\Continy\Tests\DummyPlugin\getTestDummyPlugin;
 
@@ -48,5 +49,12 @@ class TestFunctionCall extends WP_UnitTestCase
         // Configured method call.
         $return = $this->continy->call($method);
         $this->assertEquals('KeyboardMouse', $return);
+    }
+
+    public function testMethodCallAction()
+    {
+        do_action('method_call_action');
+
+        $this->assertTrue(MethodCallModule::$called);
     }
 }

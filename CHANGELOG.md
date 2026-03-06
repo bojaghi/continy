@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 1.2.5
+
+2026-03-06
+
+- 'modules' supports method calls using a '@' symbol.
+- Arguments of action or filter callbacks automatically passed to instances' constructor parameters.
+- Update documentation to reflect argument passing behavior.
+
 ## 1.2.4
 
 2025-08-12
