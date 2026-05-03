@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 1.2.6
+
+2026-05-04
+
+- Remove composer.lock
+
 ## 1.2.5
 
 2026-03-06
