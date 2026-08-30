@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 1.3.0
+
+2026-08-31
+
+- Add Continy::forget method
+
 ## 1.2.6
 
 2026-05-04
@@ -57,7 +63,7 @@
 
 2025-05-05
 
-- Fix error when underscored(_) modules were not loaded correctly if class names are used directly.
+- Fix error when underscored (_) modules were not loaded correctly if class names are used directly.
 
 ## 1.1.3
 
@@ -95,7 +101,7 @@
 
 2024-12-11
 
-- Support underscore(_) built-in modules.
+- Support underscore (_) built-in modules.
 
 ## 1.0.1
 

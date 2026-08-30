@@ -624,4 +624,12 @@ class Continy implements Container
     {
         return $this->version;
     }
+
+    public function forget(string $id): void
+    {
+        $fqcn = $this->resolve($id);
+        if ($fqcn && isset($this->storage[$fqcn])) {
+            unset($this->storage[$fqcn]);
+        }
+    }
 }
