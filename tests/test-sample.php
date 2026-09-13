@@ -1,11 +1,14 @@
 <?php
+declare(strict_types=1);
+
 namespace Bojaghi\Continy\Tests;
-use \WP_UnitTestCase;
+
+use PHPUnit\Framework\TestCase;
 
 /**
  * Sample test case.
  */
-class TestSample extends WP_UnitTestCase {
+class SampleTest extends TestCase {
 
 	/**
 	 * A single example test.

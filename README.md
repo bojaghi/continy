@@ -1,17 +1,36 @@
 # Continy
 
-아주 작고 간단한 워드프레스 플러그인과 테마 개발을 위한 컨테이너. 나름 의존성 주입을 지원한답니다!
+> 워드프레스 테마/플러그인 특성과 동작에 맞춰 개발된 단순한 컨테이너.
 
-## 목차
+## Continy는 무엇입니까?
 
-* [요구사항](#요구사항)
-* [설치](#설치)
-* [시작하기](#시작하기)
-* [설정과 예시](#설정과-예시)
+워드프레스 플러그인이나 테마를 커스텀으로 개발하게 되면,
+코드가 조금씩 커질수록 어떤 기능이 어떤 액션과 필터의 조합으로 구현되었는지 파악하기 어려워집니다.
+또한 수많은 콜백들이 난무하고, 클래스별로 의존관계가 형성되는 등 코드의 유지보수와 확장이 어려워집니다.
+
+이것을 해결하기 위해 컨테이너를 도입하여 객체 관리, 의존성 주입 등을 사용합니다.
+Continy는 이와 유사한 컨테이너입니다.
+여타 다른 컨테이너가 DI (Dependency Injection)나 여러 다양한 기능을 지원하는데 비해,
+Continy는 워드프레스 플러그인과 테마 개발에 맞추어 보다 경량화되고 필요한 기능만을 제공하는데 초점을 맞추고 있습니다.
+
+Continy는 워드프레스 라이프사이클을 고려하여 제작되었습니다. 커스텀할 기능을 논리적으로 각각 구분한 '모듈'이라는 단위를 제공합니다.
+Continy의 설정에 따라 모듈을 생성하면 개발자는 일일이 모듈의 생성 코드를 작성하지 않아도 됩니다.
+설정된 모듈은 워드프레스의 `do_action()` 시점에 정확히 생성되어 각자의 독립된 영역에서 동작하도록 보장해 줍니다.
+
+### Continy가 가진 기능
+
+Continy의 기능은 간결합니다. `do_action()`에 맞춰 모듈 클래스를 생성하여 워드프레스 플러그인/테마 구현을 보다 간결하게 합니다.
+또한, 컨테이너의 아래 기본적인 동작들을 지원합니다.
+
+- 모듈 선언
+- 객체 관리
+- 의존성 주입
+- 콜백 문자열 해석, 호출
 
 ## 요구사항
 
-* PHP 8.0 이상
+* PHP 8.3 이상
+* 워드프레스 6.9 이상
 
 ## 설치
 
@@ -21,180 +40,15 @@
 composer require bojaghi/continy
 ```
 
-## 시작하기
+## 빠른 시작
 
-autoload.php 파일은 정확하게 덤프되었나요?
-
-```shell
-composer dump-autoload
-composer dump-autoload -a # 최적화 버전
-```
-
-그다음 아래의 예시처럼 `myPlugin()` 래퍼 함수를 각자의 플러그인이나 테마에서 구현합니다.
-이렇게 Continy 객체를 생성하면, 처음 호출 때 필요한 과정이 실행됩니다.
+Factory에 설정을 담은 배열이 있는 파일의 경로, 또는 설정 배열을 인자로 집어 넣으면 됩니다.
 
 ```php
-/**
- * Plugin Name: My plugin
- * Description: ...
- * ... 
- */
-
-require_once __DIR__ . '/vendor/autoload.php';
-
-// 플러그인에서 도움이 되는 래퍼 함수 생성
-if ( !function_exists( 'myPlugin' ) ) {
-    /**
-     * Wrapper function
-     * 
-     * @return \Bojaghi\Continy\Continy
-     * @throws \Bojaghi\Continy\ContinyException
-     * @throws \Bojaghi\Continy\ContinyNotFoundException
-     */
-    function myPlugin(): Bojaghi\Continy\Continy {
-        static $continy = null;
-        
-        if (is_null($continy)) {
-            $continy = Bojaghi\Continy\ContinyFactory::create(__DIR__ . '/conf/setup.php');
-        }
-        
-        return $continy;
-    }
-}
-
-if (!function_exists('myPluginGet')) {
-    /**
-     * @template T
-     * @param class-string<T> $id
-     *
-     * @return T|object|null
-     */
-    function myPluginGet(string $id)
-    {
-        try {
-            $instance = myPlugin()->get($id);
-        } catch (\Bojaghi\Continy\ContinyException|\Bojaghi\Continy\ContinyNotFoundException $e) {
-            $instance = null;
-        }
-
-        return $instance;
-    }
-}
-
-// 플러그인 시동하기
-myPlugin();
+$continy = Bojaghi\Continy\Factory::create( __DIR__ . '/conf/setup.php' );
+// 또는,
+$continy = Bojaghi\Continy\Factory::create( array( /* ... 설정 배열 ... */ ) );
 ```
 
-## 설정과 예시
-
-워드프레스의 플러그인과 테마 개발의 핵심은 적절한 액션, 혹은 필터를 추가하는 것입니다.
-액션과 필터를 추가할 때는 반드시 콜백 함수를 명시하게 되어 있는데, 이 콜백 함수에서 우리가 원하는 동작을 구현합니다.
-
-워드프레스 코어에 우리가 원하는 기능을 구현하기 위해, 그리고 보다 쉽게 해당 기능을 관리하기 위해 '모듈'이라는 콤포넌트를 사용합니다.
-적절한 기능들을 의미적으로 묶어 하나의 독립적인 모듈로 표현하는 것입니다.
-
-Continy는 이러한 설정을 하나의 PHP 배열로 관리합니다.
-직접 설정을 배열로 입력하든지, 아니면 설정을 리턴하는 파일을 지정합니다.
-아래는 그 예입니다.
-
-```php
-// create() 부분만 예시로 듭니다.
-// 옵션 #1: 설정 파일이 있는 경로 지정하기
-$continy = Bojaghi\Continy\ContinyFactory::create(__DIR__ . '/conf/setup.php');
-
-// 옵션 #2: 직접 설정을 배열로 넣기
-$continy = Bojaghi\Continy\ContinyFactory::create(
-    [
-        'main_file' => __FILE__,
-        'version'   => '1.0.0',
-        // ...
-    ],
-);
-```
-
-두 옵션은 결과적으로 같은 동작을 합니다.
-그리고 아래는 설정의 예시입니다.
-
-```php
-/**
- * 설정 파일의 예시
- */
-if (!defined('ABSPATH')) {
-    exit;
-}
-
-return [
-    'main_file' => dirname(__DIR__) . '/index.php', // 플러그인 메인 파일
-    'version'   => '1.0.0',                         // 플러그인의 버전
-    
-    /**
-     * 훅 선언
-     * 
-     * 키: 훅 이름
-     * 값: 콜백 함수에서 허용하는 인자 수, 0 이상의 정수 
-     */
-    'hooks' => [
-        'admin_init'     => 0,
-        'current_screen' => 1
-        'init'           => 0,
-    ],
-    
-    /**
-     * 바인딩 선언
-     *
-     * 키: 별명 (alias)
-     * 값: 실제 클래스 (FQCN)
-     */
-    'bindings' => [
-        'myModule'  => MyModule::class,
-        'foo'       => Foo::class,
-        IBar::class => BarImpl::class,
-        'bax'       => Baz::class,
-        'screen'    => Screen::class, 
-    ],
-      
-    /**
-      * 클래스 의존성 주입 선언
-      *
-      * 키: 별명, 또는 FQCN
-      * 값: 배열, 또는 함수 - 함수는 배열을 리턴해야 함 
-      */
-    'arguments' => [
-        'myModule' => ['p1' => 'X', 'p2' => 'Y'],
-        'foo'      => function (Continy $continy) { return ['p1' => 'X', 'p2' => 'Y']; },
-    ],  
-      
-    /**
-     * 모듈 선언
-     */  
-    'modules' => [
-        // 1.0.2 부터 지원하는 언더스코어 모듈: Continy 가 인스턴스화 될 때 바로 실행되는 모듈.
-        // 우선순위 키는 사용하지 않습니다.
-        '_' => [
-            IBar::class,
-        ],
-        // 훅 이름
-        'init' => [
-            // 모듈 우선순위 
-            Continy::PR_DEFAULT => [
-                // 모듈 목록
-                'myModule',
-                'foo',
-                'baz@callMe', // 1.2.5 부터는 메소드 호출도 가능
-            ],
-        ],
-        'current_screen' => [
-            Continy::PR_LOW => [
-                'screen' // 1.2.5 부터 생성자 인수로 콜백 함수의 인자가 넘겨짐, arguments에는 해당 바인딩이 키가 없어야 함.
-            ],
-        ],
-        // 혹 이름, 모듈 우선순위, 모듈의 목록 ...  
-    ],
-];
-```
-
-### 의존성 주입 예시
-
-Continy 객체를 얻기 우해서는 `get()` 메소드를 사용합니다.
-
-메소드 또는 함수 호출에 의존성 주입을 위해 `call()` 메소드를 사용합니다.
+보다 상세한 사용법은 [팩토리 설정](./docs/how-to-setup-continy-factory.md)과
+[Continy 사용법](./docs/how-to-use-continy.md)를 참조하세요.
