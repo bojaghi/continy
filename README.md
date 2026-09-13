@@ -16,13 +16,12 @@ composer require bojaghi/continy
 
 ## 빠른 시작
 
-ContinyFactory에 설정을 담은 배열이 있는 파일의 경로,
-또는 설정 배열을 인자로 집어 넣으면 됩니다.
+Factory에 설정을 담은 배열이 있는 파일의 경로, 또는 설정 배열을 인자로 집어 넣으면 됩니다.
 
 ```php
-$continy = Bojaghi\Continy\Continy_Factory::create( __DIR__ . '/conf/setup.php' );
+$continy = Bojaghi\Continy\Factory::create( __DIR__ . '/conf/setup.php' );
 // 또는,
-$continy = Bojaghi\Continy\Continy_Factory::create( array( /* ... 설정 배열 ... */ ) );
+$continy = Bojaghi\Continy\Factory::create( array( /* ... 설정 배열 ... */ ) );
 ```
 
-보다 상세한 사용법은 [팩터리 설정](./docs/factory-setup.md)를 참조하세요.
+보다 상세한 사용법은 [팩토리 설정](./docs/factory-setup.md)를 참조하세요.
