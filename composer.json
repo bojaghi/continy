@@ -23,7 +23,7 @@
     "yoast/phpunit-polyfills": "^4",
     "bojaghi/wp-tests": "^1.0",
     "bojaghi/dictionary": "^1.0",
-    "wp-coding-standards/wpcs": "^3.4",
+    "wp-coding-standards/wpcs": "^3.0",
     "alleyinteractive/wordpress-autoloader": "^1.2"
   },
   "scripts": {

@@ -1,6 +1,6 @@
-# Factory 설정법
+# Continy_Factory 설정법
 
-`Continy\Factory`는 Continy를 초기화하는 클래스입니다.
+`Continy\Continy_Factory`는 Continy를 초기화하는 클래스입니다.
 인자로 하나의 문자열, 또는 설정 배열을 받을 수 있습니다.
 
 문자열일 경우 설정 배열 배열을 리턴하는 파일의 경로를 의미합니다.
@@ -11,7 +11,7 @@
 설정 배열을 직접 입력하는 경우 아래와 같이 작성합니다.
 
 ```php
-$continy = Bojaghi\Continy\Factory::create( array(
+$continy = Bojaghi\Continy\Continy_Factory::create( array(
     'main_file' => __FILE__,
     'version'   => '1.0.0',
     // ...
@@ -23,7 +23,7 @@ $continy = Bojaghi\Continy\Factory::create( array(
 문자열의 경우는 아래처럼 코드를 작성합니다.
 
 ```php
-$continy = Bojaghi\Continy\Factory::create( __DIR__ . '/conf/setup.php' );
+$continy = Bojaghi\Continy\Continy_Factory::create( __DIR__ . '/conf/setup.php' );
 ```
 
 여기서 /conf/setup.php의 내부는 아래와 같이 작성할 수 있습니다.
