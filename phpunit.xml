@@ -1,6 +1,5 @@
 <?xml version="1.0"?>
 <phpunit
-        bootstrap="tests/bootstrap.php"
         backupGlobals="false"
         colors="true"
         convertErrorsToExceptions="true"
@@ -9,8 +8,10 @@
 >
     <testsuites>
         <testsuite name="testing">
-            <directory prefix="Test" suffix=".php">./tests/</directory>
-            <exclude>./tests/TestSample.php</exclude>
+            <directory prefix="test" suffix=".php">./tests/</directory>
+            <exclude>./tests/wp-core</exclude>
+            <exclude>./tests/wp-tests</exclude>
+            <exclude>./tests/sample-test.php</exclude>
         </testsuite>
     </testsuites>
 </phpunit>
