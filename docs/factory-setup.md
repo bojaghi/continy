@@ -60,8 +60,8 @@ return array(
         'foo'       => Foo::class,     // 단순 바인딩
         IBar::class => BarImpl::class, // 인터페이스 - 구현
         'baz'       => array(
-            'as'   => Baz::class,                // 필수
-            'args' => array('x' => 8, 'y' => 3), // 배열을 리턴
+            'as'   => Baz::class,                  // 필수
+            'args' => array( 'x' => 8, 'y' => 3 ), // 배열을 리턴
         ),
         'buf'       => array(
             'as'    => Buf::class, // 필수
