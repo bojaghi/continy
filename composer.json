@@ -15,22 +15,22 @@
     }
   ],
   "require": {
-    "php": ">=8.3",
-    "bojaghi/contract": "^2"
+    "php": ">=8.3"
   },
   "require-dev": {
-    "phpunit/phpunit": "^9",
-    "yoast/phpunit-polyfills": "^4",
-    "bojaghi/wp-tests": "^1.0",
+    "alleyinteractive/composer-wordpress-autoloader": "^1.3",
     "bojaghi/dictionary": "^1.0",
+    "bojaghi/wp-tests": "^1.0",
+    "phpunit/phpunit": "^9",
     "wp-coding-standards/wpcs": "^3.0",
-    "alleyinteractive/wordpress-autoloader": "^1.2"
+    "yoast/phpunit-polyfills": "^4"
   },
   "scripts": {
   },
   "version": "2.0.0",
   "config": {
     "allow-plugins": {
+      "alleyinteractive/composer-wordpress-autoloader": true,
       "dealerdirect/phpcodesniffer-composer-installer": true
     }
   },
@@ -38,7 +38,8 @@
     "wordpress-autoloader": {
       "autoload": {
         "Bojaghi\\Continy\\": "inc/"
-      }
+      },
+      "inject": true
     }
   }
 }
