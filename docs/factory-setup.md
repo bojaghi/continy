@@ -12,9 +12,8 @@
 
 ```php
 $continy = Bojaghi\Continy\Continy_Factory::create( array(
-    'main_file' => __FILE__,
-    'version'   => '1.0.0',
-    // ...
+    'bindings' => array( /* ... */ ),
+    'modules'  => array( /* ... */ ),
 ) );
 ```
 
@@ -35,9 +34,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 return array(
-    'main_file' => MAIN_FILE,
-    'version'   => '1.0.0',
-    // ... 
+    'bindings' => array( /* ... */ ),
+    'modules'  => array( /* ... */ ),
 );
 ```
 
@@ -54,8 +52,6 @@ if (!defined('ABSPATH')) {
 }
 
 return array(
-    'main_file' => dirname(__DIR__) . '/index.php', // 필수. 플러그인, 테마의 메인 파일
-    'version'   => '1.0.0',                         // 필수. 플러그인, 테마의 버전
     'bindings' => array(
         'foo'       => Foo::class,     // 단순 바인딩
         IBar::class => BarImpl::class, // 인터페이스 - 구현
@@ -88,6 +84,9 @@ return array(
                'args' => array( 'value' => 'z' ),
            ),
         ),
+        'className' => array(
+            'verbatim' => 'Namespace\\Namespaced\\ClassName',
+        )
     ),   
     'modules' => array(
         // '_' 키는 액션 콜백에 사용되는 모듈이 아닌, 플러그인 실행 시점에 바로 생성되는 모듈을 선언하기 위해 사용합니다.
@@ -116,20 +115,6 @@ return array(
 
 ## 설정 배열 설명
 
-### `main_file`
-
-문자열입니다. 플러그인 또는 테마의 메인 파일의 절대 경로입니다.
-플러그인의 경우 플러그인 헤더가 있는 PHP 파일입니다.
-테마의 경우 테마 헤더가 있는 style.css 파일입니다.
-
-이 키의 값을 필수로 입력해야 합니다.
-
-### `version`
-
-문자열입니다. 버전을 기록합니다.
-
-이 키의 값을 필수로 입력해야 합니다.
-
 ### `bindings`
 
 연관 배열입니다. 객체를 고유한 식별자로 매핑하고 나중에 해당 식별자를 이용해 객체의 인스턴스를
@@ -155,8 +140,8 @@ return array(
         - 반드시 배열을 리턴해야 합니다.
 - `when`: 어떤 객체가 이 식별자의 인스턴스를 요청하는지 조건적으로 대응할 수 있습니다.
 - `reuse`: 기본값은 true지만, false로 입력할 경우, 매번 새롭게 인스턴스를 생성합니다.
-- `value`: `as`는 FQCN로서 인스턴스화, 혹은 호출 가능한 객체로서 호출되는대 비해,
-  `value`는 단지 상수로서 취급됩니다. 이 키가 사용되면 'args', 'when' 키는 무효 처리되며, 'reuse' 또한 true로 고정됩니다.
+- `verbatim`: `as`는 FQCN로서 인스턴스화, 혹은 호출 가능한 객체로서 호출되는대 비해,
+  `verbatim`은 단지 상수로서 취급됩니다. 이 키가 사용되면 'args', 'when' 키는 무효 처리되며, 'reuse' 또한 true로 고정됩니다.
 
 ### `modules`
 

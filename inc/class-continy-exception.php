@@ -10,7 +10,7 @@ declare( strict_types=1 );
 namespace Bojaghi\Continy;
 
 use Exception;
-use Psr\Container\ContainerExceptionINterface;
+use Psr\Container\ContainerExceptionInterface;
 
 /**
  * Continy_Exception

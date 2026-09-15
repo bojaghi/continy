@@ -15,7 +15,8 @@
     }
   ],
   "require": {
-    "php": ">=8.3"
+    "php": ">=8.3",
+    "bojaghi/contract": "^2.0.1"
   },
   "require-dev": {
     "alleyinteractive/composer-wordpress-autoloader": "^1.3",
