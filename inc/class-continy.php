@@ -45,10 +45,10 @@ class Continy implements Container {
 	protected array $bindings;
 
 	/**
-	 * Array of FQCN, that are resolved
+	 * Array of alias, succeeded in finding bound item.
 	 *
-	 * Key: alias
-	 * Value: FQCN
+	 * Key: FQCN
+	 * Value: alias
 	 *
 	 * @var array
 	 */
@@ -89,7 +89,7 @@ class Continy implements Container {
 	}
 
 	public function has( string $id ): bool {
-		return class_exists( $id ) || isset( $this->resolved[ $id ] );
+		return isset( $this->resolved[ $id ] );
 	}
 
 	public function call( callable|array|string $to_call, mixed $args = null ): mixed {
@@ -112,11 +112,10 @@ class Continy implements Container {
 	 * @throws Continy_Not_Found_Exception When object not found.
 	 */
 	public function spawn( string $id, mixed $args = null, bool $reuse = true ): mixed {
-		if ( ! $this->has( $id ) ) {
-			// TODO: try to resolve it
-
-			throw new Continy_Not_Found_Exception( esc_html( "'$id' is not a valid binding id." ) );
+		if ( $this->has( $id ) && $reuse ) {
+			return $this->resolved[ $id ];
 		}
+
 
 		$binding = $this->bindings[ $id ];
 
@@ -140,13 +139,9 @@ class Continy implements Container {
 	 * @return void
 	 */
 	protected function initialize_bindings( array $bindings_setup ): void {
-		$default = array(
-			'when'     => null,
-			'as'       => null,
-			'args'     => null,
-			'reuse'    => true,
-			'verbatim' => null,
-		);
+		// TODO: accomplish resolved property.
+
+		$default = self::get_default_binding_array();
 
 		// Handle setup items.
 		foreach ( $bindings_setup as $alias => $setup ) {
@@ -273,22 +268,73 @@ class Continy implements Container {
 		if ( ! $fqcn ) {
 			throw new Continy_Not_Found_Exception( esc_html( "'$id' does not exist." ) );
 		}
+
+		// id 찾는 조건
+		// 우선 인자가 분명히 string으로 못박혀 있으므로 다른 경우는 불가능
+		// - alias
+		// - FQCN 인데, binding 된 것일 수도 있고
+		// - FQCN 인데, unbound 된 경우
+		// - 기타 string
+		//
+		// -- alias: 바로 binding에 있으므로 원하는 설정 찾을 수 있음
+		// -- FQCN, but bound -> 이 경우 때문에 binding 될 때 미리 FQCN 따로 수집해야 함
+		// -- FQCN, unbound   -> 즉시 컨테이너가 만들어서 보간해야 함
+		// -- 기타 문자열은 parse 시도해 봐서 콜백 같은 걸로 걸리면 해동 콜백을 리턴
+		//
+		// 또한 binding 이라도 어떤 의존성 걸리는 조건도 파악해 두어야 함
+		// binding 에서 verbatim은 가장 간단한 경우
+		// when 에서 어떤 클래스가 생성자로 요청하는지 조건이 걸림
+		// as 는 반드시 FQCN 이어야 함
+		// reuse 는 새 객체인지 stored 된 것도 허용하는지
+		// 즉 ... binding 찾고 해당 값 분석을 먼저 해야
+		// 객체를 생성할지 재사용할지를 판단할 수 있음.
+		//
+		// 오호라! get_binding( $id ) 로 찾아야 한다
+		// binding을 찾아내면 (컨테이너가 즉석에서 만들든 어쩌든)
+		// 해당 정보를 바탕으로 조건대로 처리한다
 	}
 
-	protected function resolve( string $id ): string {
-		if ( ! isset( $this->resolved[ $id ] ) ) {
-			$fqcn                  = $this->find_fqcn( $id );
-			$this->resolved[ $id ] = $fqcn;
-			if ( $id !== $fqcn ) {
-				$this->resolved[ $fqcn ] = $fqcn;
-			}
+	/**
+	 * Get binding by given $id
+	 *
+	 * @param string $id bound item to search for.
+	 *
+	 * @return array|null
+	 */
+	protected function get_binding( string $id ): ?array {
+		// id is mapped to bindings.
+		if ( isset( $this->bindings[ $id ] ) ) {
+			$this->resolved[ $id ] = $id;
+
+			return $this->bindings[ $id ];
 		}
 
-		return $this->resolved[ $id ];
-	}
+		// FQCN is resolved and then we can get the id.
+		if (
+			( $alt_id = $this->resolved[ $id ] ?? false ) &&
+			$alt_id !== $id &&
+			isset( $this->bindings[ $alt_id ] )
+		) {
+			return $this->bindings[ $alt_id ];
+		}
 
-	protected function find_fqcn( string $id ): string {
-		// bindings ...
+		// We cannot find the binding. Add dynamically.
+		// $id can be a class string that autoloader can include right now.
+		if ( class_exists( $id ) ) {
+			$this->resolved[ $id ] = $id;
+			$this->bindings[ $id ] = array(
+				...static::get_default_binding_array(),
+				'as' => $id,
+			);
+
+			return $this->bindings[ $id ];
+		}
+
+		// Note: binding is not for functions, methods, or callable strings
+		//       which are normally we can call them directly.
+		//
+		// Give up.
+		return null;
 	}
 
 	/**
@@ -303,6 +349,16 @@ class Continy implements Container {
 			array_keys( $input ),
 			fn( $carry, $item ) => $carry && is_int( $item ),
 			true,
+		);
+	}
+
+	private static function get_default_binding_array(): array {
+		return array(
+			'when'     => null,
+			'as'       => null,
+			'args'     => null,
+			'reuse'    => true,
+			'verbatim' => null,
 		);
 	}
 }
