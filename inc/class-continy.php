@@ -112,10 +112,22 @@ class Continy implements Container {
 		return null;
 	}
 
+	/**
+	 * Drop the instance by ID.
+	 *
+	 * @param string $id Identifier to forget.
+	 *
+	 * @return void
+	 */
 	public function forget( string $id ): void {
-		// TODO
-	}
+		if ( isset( $this->storage[ $id ] ) ) {
+			unset( $this->storage[ $id ] );
+		}
 
+		if ( isset( $this->resolved[ $id ] ) ) {
+			unset( $this->storage[ $this->resolved[ $id ] ] );
+		}
+	}
 
 	/**
 	 * Initialize bindings
@@ -142,7 +154,7 @@ class Continy implements Container {
 				continue;
 			}
 
-			if ( wp_is_numeric_array( $setup ) ) {
+			if ( array_is_list( $setup ) ) {
 				$setup = array_map( fn( $s ) => wp_parse_args( $s, $default ), $setup );
 			} else {
 				$setup = array( wp_parse_args( $setup, $default ) );
@@ -327,7 +339,7 @@ class Continy implements Container {
 				} else {
 					foreach ( $union_types as $union_type ) {
 						if ( $union_type->allowsNull() && str_starts_with( $union_type->getName(), '?' ) ) {
-							substr($union_type->getName(), 1);
+							substr( $union_type->getName(), 1 );
 						} else {
 							$union_type->getName();
 						}
@@ -377,6 +389,11 @@ class Continy implements Container {
 		return null;
 	}
 
+	/**
+	 * Get the default binding array form.
+	 *
+	 * @return array
+	 */
 	private static function get_default_binding_array(): array {
 		return array(
 			'when'     => null,
