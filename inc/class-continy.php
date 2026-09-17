@@ -11,6 +11,11 @@ namespace Bojaghi\Continy;
 
 use Bojaghi\Contract\Container;
 use Bojaghi\Helper\Helper;
+use ReflectionClass;
+use ReflectionException;
+use ReflectionFunction;
+use ReflectionMethod;
+use ReflectionUnionType;
 
 /**
  * Continy container class
@@ -28,16 +33,6 @@ class Continy implements Container {
 	public const PR_LAZY      = 10000;
 
 	/**
-	 * Aliases
-	 *
-	 * - key: each 'as' value of bindings
-	 * - value: alias string.
-	 *
-	 * @var array
-	 */
-	protected array $aliases;
-
-	/**
 	 * All binding items
 	 *
 	 * @var array
@@ -45,10 +40,10 @@ class Continy implements Container {
 	protected array $bindings;
 
 	/**
-	 * Array of alias, succeeded in finding bound item.
+	 * Array of alias, succeeded in finding a bound item.
 	 *
-	 * Key: FQCN
-	 * Value: alias
+	 * Key: 'as' value or FQCN.
+	 * Value: alias, or FQCN.
 	 *
 	 * @var array
 	 */
@@ -72,12 +67,8 @@ class Continy implements Container {
 	 * @see docs/factory-setup.md
 	 */
 	public function __construct( array $args = array() ) {
-		$this->aliases  = array();
 		$this->bindings = array();
-		$this->resolved = array(
-			'continy' => __CLASS__,
-			__CLASS__ => __CLASS__,
-		);
+		$this->resolved = array( __CLASS__ => 'continy' );
 		$this->storage  = array( __CLASS__ => $this );
 
 		$this->initialize_bindings( $args['bindings'] ?? array() );
@@ -112,11 +103,6 @@ class Continy implements Container {
 	 * @throws Continy_Not_Found_Exception When object not found.
 	 */
 	public function spawn( string $id, mixed $args = null, bool $reuse = true ): mixed {
-		if ( $this->has( $id ) && $reuse ) {
-			return $this->resolved[ $id ];
-		}
-
-
 		$binding = $this->bindings[ $id ];
 
 		if ( ! empty( $binding['verbatim'] ) ) {
@@ -137,44 +123,40 @@ class Continy implements Container {
 	 * @param array $bindings_setup 'bindings' array.
 	 *
 	 * @return void
+	 *
+	 * @throws Continy_Exception When multiple aliases are mapped to one class.
 	 */
 	protected function initialize_bindings( array $bindings_setup ): void {
-		// TODO: accomplish resolved property.
-
 		$default = self::get_default_binding_array();
 
 		// Handle setup items.
 		foreach ( $bindings_setup as $alias => $setup ) {
 			if ( is_string( $setup ) ) {
-				$setup = wp_parse_args( array( 'as' => $setup ), $default );
+				$setup = array(
+					...$default,
+					array( 'as' => $setup ),
+				);
 			}
 
-			if ( is_array( $setup ) ) {
-				if ( static::is_numeric_array( $setup ) ) {
-					$nested = array();
-					foreach ( $setup as $value ) {
-						$nested[] = wp_parse_args( $value, $default );
-					}
-					$setup = $nested;
-				} else {
-					$setup = array( wp_parse_args( $setup, $default ) );
-				}
-			} else {
+			if ( ! is_array( $setup ) ) {
 				continue;
 			}
 
-			$this->bindings[ $alias ] = $setup;
-
-			// Remember aliases by 'as' key value.
-			// Continy may need them when users query instances by FQCN, not by aliases.
-			// Users should expect proper objects with dependency injection  no matter how they query.
-			foreach ( $setup as $s ) {
-				if ( $s['as'] && $s['as'] !== $alias ) {
-					$this->aliases[ $s['as'] ] = $alias;
-					$this->resolved[ $alias ]  = $s['as'];
-				} elseif ( $s['verbatim'] ) {
-				}
+			if ( wp_is_numeric_array( $setup ) ) {
+				$setup = array_map( fn( $s ) => wp_parse_args( $s, $default ), $setup );
+			} else {
+				$setup = array( wp_parse_args( $setup, $default ) );
 			}
+
+			// Fill resolved property.
+			foreach ( $setup as $item ) {
+				if ( isset( $item['as'] ) ) {
+					throw new Continy_Exception( 'You are trying to map multiple aliases to one class.' );
+				}
+				$this->resolved[ $item['as'] ] = $alias;
+			}
+
+			$this->bindings[ $alias ] = $setup;
 		}
 	}
 
@@ -263,35 +245,100 @@ class Continy implements Container {
 	 *
 	 * @throws Continy_Not_Found_Exception When ID is not found.
 	 */
-	protected function instantiate( string $id ): mixed {
-		$fqcn = $this->resolve( $id );
-		if ( ! $fqcn ) {
+	protected function instantiate( string $id, string $when = '' ): mixed {
+		$binding = $this->get_binding( $id );
+		if ( ! $binding ) {
 			throw new Continy_Not_Found_Exception( esc_html( "'$id' does not exist." ) );
 		}
 
-		// id 찾는 조건
-		// 우선 인자가 분명히 string으로 못박혀 있으므로 다른 경우는 불가능
-		// - alias
-		// - FQCN 인데, binding 된 것일 수도 있고
-		// - FQCN 인데, unbound 된 경우
-		// - 기타 string
-		//
-		// -- alias: 바로 binding에 있으므로 원하는 설정 찾을 수 있음
-		// -- FQCN, but bound -> 이 경우 때문에 binding 될 때 미리 FQCN 따로 수집해야 함
-		// -- FQCN, unbound   -> 즉시 컨테이너가 만들어서 보간해야 함
-		// -- 기타 문자열은 parse 시도해 봐서 콜백 같은 걸로 걸리면 해동 콜백을 리턴
-		//
-		// 또한 binding 이라도 어떤 의존성 걸리는 조건도 파악해 두어야 함
-		// binding 에서 verbatim은 가장 간단한 경우
-		// when 에서 어떤 클래스가 생성자로 요청하는지 조건이 걸림
-		// as 는 반드시 FQCN 이어야 함
-		// reuse 는 새 객체인지 stored 된 것도 허용하는지
-		// 즉 ... binding 찾고 해당 값 분석을 먼저 해야
-		// 객체를 생성할지 재사용할지를 판단할 수 있음.
-		//
-		// 오호라! get_binding( $id ) 로 찾아야 한다
-		// binding을 찾아내면 (컨테이너가 즉석에서 만들든 어쩌든)
-		// 해당 정보를 바탕으로 조건대로 처리한다
+		// Filter by 'when'
+		if ( 1 === count( $binding ) ) {
+			$binding = array_shift( $binding );
+		} elseif ( count( $binding ) > 1 && $when ) {
+			$binding = array_find( $binding, fn( $b ) => $b['when'] === $when );
+			if ( ! $binding ) {
+				throw new Continy_Not_Found_Exception( esc_html( "'when' value of '$id' is invalid." ) );
+			}
+		}
+
+		if ( $binding['verbatim'] ) {
+			// Verbatim returns the value itself.
+			return $binding['verbatim'];
+		}
+
+		$args  = $binding['args'];
+		$fqcn  = $binding['as'];
+		$reuse = $binding['reuse'];
+
+		// Re-use.
+		if ( $reuse && isset( $this->storage[ $fqcn ] ) ) {
+			return $this->storage[ $fqcn ];
+		}
+
+		// Detect construct parameter.
+
+		// instantiate using new keyword
+
+		// store it.
+
+		// return.
+	}
+
+	protected function _create_instance( string $fqcn, array $args = array() ) {
+
+	}
+
+	/**
+	 * @param callable|array|string $target
+	 * @param array                 $given
+	 *
+	 * @return void
+	 * @throws ReflectionException Reflection failed.
+	 */
+	protected function detect_params( callable|array|string $target ) {
+		if ( is_string( $target ) && class_exists( $target ) ) {
+			$reflection  = new ReflectionClass( $target );
+			$constructor = $reflection->getConstructor();
+			$parameters  = $constructor ? $constructor->getParameters() : [];
+		} elseif ( is_callable( $target ) ) {
+			if ( is_array( $target ) && 2 === count( $target ) ) {
+				$reflection = new ReflectionMethod( $target[0], $target[1] );
+			} else {
+				$reflection = new ReflectionFunction( $target );
+			}
+			$parameters = $reflection->getParameters();
+		} else {
+			throw new ReflectionException( 'Invalid target' );
+		}
+
+		foreach ( $parameters as $parameter ) {
+			$name = $parameter->getName();
+
+			if ( $parameter->getType() instanceof ReflectionUnionType ) {
+				$union_types = $parameter->getType()->getTypes();
+
+				if ( $parameter->isOptional() ) {
+					$default_value      = $parameter->getDefaultValue();
+					$default_value_type = is_scalar( $default_value ) ? gettype( $default_value ) : get_class( $default_value );
+
+					foreach ( $union_types as $union_type ) {
+
+					}
+				} else {
+					foreach ( $union_types as $union_type ) {
+						if ( $union_type->allowsNull() && str_starts_with( $union_type->getName(), '?' ) ) {
+							substr($union_type->getName(), 1);
+						} else {
+							$union_type->getName();
+						}
+					}
+				}
+			} else {
+
+			}
+
+			//
+		}
 	}
 
 	/**
@@ -302,20 +349,15 @@ class Continy implements Container {
 	 * @return array|null
 	 */
 	protected function get_binding( string $id ): ?array {
-		// id is mapped to bindings.
-		if ( isset( $this->bindings[ $id ] ) ) {
-			$this->resolved[ $id ] = $id;
-
-			return $this->bindings[ $id ];
+		if ( isset( $this->resolved[ $id ] ) && $id !== $this->resolved[ $id ] ) {
+			// $id may be a class string, and may be already resolved.
+			// Set to its alias.
+			$id = $this->resolved[ $id ];
 		}
 
-		// FQCN is resolved and then we can get the id.
-		if (
-			( $alt_id = $this->resolved[ $id ] ?? false ) &&
-			$alt_id !== $id &&
-			isset( $this->bindings[ $alt_id ] )
-		) {
-			return $this->bindings[ $alt_id ];
+		if ( isset( $this->bindings[ $id ] ) ) {
+			// id is mapped to bindings.
+			return $this->bindings[ $id ];
 		}
 
 		// We cannot find the binding. Add dynamically.
@@ -330,26 +372,9 @@ class Continy implements Container {
 			return $this->bindings[ $id ];
 		}
 
-		// Note: binding is not for functions, methods, or callable strings
-		//       which are normally we can call them directly.
-		//
+		// Note: binding is not for functions, methods, or callable strings.
 		// Give up.
 		return null;
-	}
-
-	/**
-	 * Check if is numeric array, not associative array.
-	 *
-	 * @param array $input Input array.
-	 *
-	 * @return bool
-	 */
-	private static function is_numeric_array( array $input ): bool {
-		return array_reduce(
-			array_keys( $input ),
-			fn( $carry, $item ) => $carry && is_int( $item ),
-			true,
-		);
 	}
 
 	private static function get_default_binding_array(): array {

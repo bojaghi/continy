@@ -67,7 +67,7 @@ return array(
             },
             'reuse' => false,                                      // 호출시 매번 인스턴스를 새로 생성, 캐싱되지 않음
         ),
-        'cond'      => array(
+        ICond::class => array(
            // 조건적 바인딩
            array(
                'when' => A::class,                 // A 클래스가 요구하는 경우
@@ -86,7 +86,7 @@ return array(
         ),
         'className' => array(
             'verbatim' => 'Namespace\\Namespaced\\ClassName',
-        )
+        ),
     ),   
     'modules' => array(
         // '_' 키는 액션 콜백에 사용되는 모듈이 아닌, 플러그인 실행 시점에 바로 생성되는 모듈을 선언하기 위해 사용합니다.
@@ -138,6 +138,7 @@ return array(
         - 두번째 인수는 바인딩하는 식별자 id 입니다.
         - 세번째 인수는 바인딩된 배열입니다.
         - 반드시 배열을 리턴해야 합니다.
+    - 최대한 Continy가 알아낼 수 있는 값을 이용해 의존성 주입을 시도합니다.
 - `when`: 어떤 객체가 이 식별자의 인스턴스를 요청하는지 조건적으로 대응할 수 있습니다.
 - `reuse`: 기본값은 true지만, false로 입력할 경우, 매번 새롭게 인스턴스를 생성합니다.
 - `verbatim`: `as`는 FQCN로서 인스턴스화, 혹은 호출 가능한 객체로서 호출되는대 비해,
@@ -163,3 +164,35 @@ return array(
 단, 키 중 '_' (언더스코어)는 특별한 의미를 가집니다.
 플러그인이 로딩되는 시점에 바로 인스턴스화 되는 모듈을 지정하기 위해 사용됩니다.
 이 키의 값은 연관 배열이 아닌, **순차 배열**입니다.
+
+## 일러두기
+
+### 별명과 실체는 동일
+
+Continy에서 바인딩 된 별명(alias)은 그 클래스의 FQCN과 동일한 의미를 지닙니다.
+예를 들어, bindings 설정으로 아래처럼 입력하였다고 합니다.
+
+```php
+array(
+    'bindings' => array(
+        'foo' => array(
+            'as'    => Foo::class,
+            'args'  => array( ... )
+            'reuse' => false,
+        ),
+    ),
+)
+```
+
+Continy를 통해 `Foo::class`를 요청하든, `foo`로 요청하든 똑같이 동작합니다.
+
+```php
+$f = $continy->get('foo');
+// 동일
+$f = $continy->get(Foo::class);
+```
+
+### 중복 매핑 금지
+
+별명을 중복으로 가질 수 없습니다. 그러므로 `Foo` 를래스에 'foo'라는 별명을 붙였으면,
+다른 별명으로 `Foo` 를래스를 가리킬 수 없습니다.
