@@ -40,6 +40,13 @@ class Continy implements Container {
 	protected array $bindings;
 
 	/**
+	 * Detector instance
+	 *
+	 * @var Continy_Param_Detector
+	 */
+	protected Continy_Param_Detector $detector;
+
+	/**
 	 * Array of alias, succeeded in finding a bound item.
 	 *
 	 * Key: 'as' value or FQCN.
@@ -64,10 +71,13 @@ class Continy implements Container {
 	 *
 	 * @param array $args Setup array.
 	 *
+	 * @throws Continy_Exception Throws when binding fails.
+	 *
 	 * @see docs/factory-setup.md
 	 */
 	public function __construct( array $args = array() ) {
 		$this->bindings = array();
+		$this->detector = new Continy_Param_Detector();
 		$this->resolved = array( __CLASS__ => 'continy' );
 		$this->storage  = array( __CLASS__ => $this );
 
@@ -79,6 +89,13 @@ class Continy implements Container {
 		// TODO: Implement get() method.
 	}
 
+	/**
+	 * Check if ID is instantiated the container.
+	 *
+	 * @param string $id
+	 *
+	 * @return bool
+	 */
 	public function has( string $id ): bool {
 		return isset( $this->resolved[ $id ] );
 	}
@@ -102,14 +119,64 @@ class Continy implements Container {
 	 * @return mixed
 	 * @throws Continy_Not_Found_Exception When object not found.
 	 */
-	public function spawn( string $id, mixed $args = null, bool $reuse = true ): mixed {
-		$binding = $this->bindings[ $id ];
+	public function instantiate( string $id, mixed $args = null, bool $reuse = true ): mixed {
+		$binding = $this->get_binding( $id );
 
-		if ( ! empty( $binding['verbatim'] ) ) {
+		if ( ! $binding ) {
+			throw new Continy_Not_Found_Exception( esc_html( "'$id' does not have binding." ) );
+		}
+
+		// Verbatim.
+		if ( array_key_exists( 'verbatim', $binding ) ) {
 			return $binding['verbatim'];
 		}
 
-		return null;
+		$reuse = $args['reuse'] ?? $reuse;
+
+		// Re-use
+		if ( $reuse && $this->has( $id ) ) {
+			return $this->storage[ $id ];
+		}
+
+		// Creation
+		$instance = null;
+
+		$class_name = $this->get_binding_as( $binding );
+		if ( ! $class_name || ! class_exists( $class_name ) ) {
+			throw new Continy_Not_Found_Exception( esc_html( "'$id', class not found." ) );
+		}
+
+		if ( $args ) {
+			// $args may be callable, array, or string, provided by arguments.
+			if ( is_callable( $args ) ) {
+				// In this case, the return value of the callable should be an instance.
+				$instance = call_user_func_array( $args, array( $id, $class_name, $this ) );
+			} else {
+				throw new Continy_Not_Found_Exception( esc_html( "'$id', unsupported \$args type." ) );
+			}
+		} else {
+			// $args is null, retrieved from $binding.
+			$params = $this->detect_params( $class_name );
+
+			if ( is_callable( $args ) ) {
+				$args = call_user_func_array( $args, array( $id, $class_name, $this ) );
+			} elseif ( is_string( $args ) ) {
+				$args = Helper::load_config( $args );
+			}
+
+			// complete $args. TODO
+
+			$instance = new $class_name( ... $args );
+		}
+
+		if ( $reuse ) {
+			$this->storage[ $id ] = $instance;
+			if ( $id !== $class_name ) {
+				$this->storage[ $class_name ] = $instance;
+			}
+		}
+
+		return $instance;
 	}
 
 	/**
@@ -119,7 +186,7 @@ class Continy implements Container {
 	 *
 	 * @return void
 	 */
-	public function forget( string $id ): void {
+	public function drop( string $id ): void {
 		if ( isset( $this->storage[ $id ] ) ) {
 			unset( $this->storage[ $id ] );
 		}
@@ -249,118 +316,48 @@ class Continy implements Container {
 	}
 
 	/**
-	 * Try to instantiate
+	 * Get binding 'as' value.
 	 *
-	 * @param string $id Given id to find.
+	 * @param array  $binding Binding array.
+	 * @param string $when    'when' filter.
 	 *
-	 * @return mixed
+	 * @return string
 	 *
-	 * @throws Continy_Not_Found_Exception When ID is not found.
 	 */
-	protected function instantiate( string $id, string $when = '' ): mixed {
-		$binding = $this->get_binding( $id );
-		if ( ! $binding ) {
-			throw new Continy_Not_Found_Exception( esc_html( "'$id' does not exist." ) );
-		}
-
-		// Filter by 'when'
+	protected function get_binding_as( array $binding, string $when = '' ): string {
 		if ( 1 === count( $binding ) ) {
 			$binding = array_shift( $binding );
-		} elseif ( count( $binding ) > 1 && $when ) {
+		} elseif ( $when ) {
 			$binding = array_find( $binding, fn( $b ) => $b['when'] === $when );
-			if ( ! $binding ) {
-				throw new Continy_Not_Found_Exception( esc_html( "'when' value of '$id' is invalid." ) );
-			}
 		}
 
-		if ( $binding['verbatim'] ) {
-			// Verbatim returns the value itself.
-			return $binding['verbatim'];
-		}
-
-		$args  = $binding['args'];
-		$fqcn  = $binding['as'];
-		$reuse = $binding['reuse'];
-
-		// Re-use.
-		if ( $reuse && isset( $this->storage[ $fqcn ] ) ) {
-			return $this->storage[ $fqcn ];
-		}
-
-		// Detect construct parameter.
-
-		// instantiate using new keyword
-
-		// store it.
-
-		// return.
-	}
-
-	protected function _create_instance( string $fqcn, array $args = array() ) {
-
+		return $binding['as'] ?? '';
 	}
 
 	/**
 	 * @param callable|array|string $target
-	 * @param array                 $given
 	 *
-	 * @return void
-	 * @throws ReflectionException Reflection failed.
+	 * @return array|null
 	 */
-	protected function detect_params( callable|array|string $target ) {
-		if ( is_string( $target ) && class_exists( $target ) ) {
-			$reflection  = new ReflectionClass( $target );
-			$constructor = $reflection->getConstructor();
-			$parameters  = $constructor ? $constructor->getParameters() : [];
-		} elseif ( is_callable( $target ) ) {
-			if ( is_array( $target ) && 2 === count( $target ) ) {
-				$reflection = new ReflectionMethod( $target[0], $target[1] );
-			} else {
-				$reflection = new ReflectionFunction( $target );
-			}
-			$parameters = $reflection->getParameters();
-		} else {
-			throw new ReflectionException( 'Invalid target' );
-		}
-
-		foreach ( $parameters as $parameter ) {
-			$name = $parameter->getName();
-
-			if ( $parameter->getType() instanceof ReflectionUnionType ) {
-				$union_types = $parameter->getType()->getTypes();
-
-				if ( $parameter->isOptional() ) {
-					$default_value      = $parameter->getDefaultValue();
-					$default_value_type = is_scalar( $default_value ) ? gettype( $default_value ) : get_class( $default_value );
-
-					foreach ( $union_types as $union_type ) {
-
-					}
-				} else {
-					foreach ( $union_types as $union_type ) {
-						if ( $union_type->allowsNull() && str_starts_with( $union_type->getName(), '?' ) ) {
-							substr( $union_type->getName(), 1 );
-						} else {
-							$union_type->getName();
-						}
-					}
-				}
-			} else {
-
-			}
-
-			//
+	protected function detect_params( callable|array|string $target ): ?array {
+		try {
+			return $this->detector->detect( $target );
+		} catch ( ReflectionException $_ ) {
+			return null;
 		}
 	}
 
 	/**
 	 * Get binding by given $id
 	 *
-	 * @param string $id bound item to search for.
+	 * @param string $id   bound item to search for.
+	 * @param string $when 'when' filter.
 	 *
 	 * @return array|null
 	 */
-	protected function get_binding( string $id ): ?array {
+	protected function get_binding( string $id, string $when = '' ): ?array {
+		$output = null;
+
 		if ( isset( $this->resolved[ $id ] ) && $id !== $this->resolved[ $id ] ) {
 			// $id may be a class string, and may be already resolved.
 			// Set to its alias.
@@ -369,7 +366,7 @@ class Continy implements Container {
 
 		if ( isset( $this->bindings[ $id ] ) ) {
 			// id is mapped to bindings.
-			return $this->bindings[ $id ];
+			$output = $this->bindings[ $id ];
 		}
 
 		// We cannot find the binding. Add dynamically.
@@ -377,15 +374,35 @@ class Continy implements Container {
 		if ( class_exists( $id ) ) {
 			$this->resolved[ $id ] = $id;
 			$this->bindings[ $id ] = array(
-				...static::get_default_binding_array(),
-				'as' => $id,
+				array(
+					...static::get_default_binding_array(),
+					'as' => $id,
+				),
 			);
 
-			return $this->bindings[ $id ];
+			$output = $this->bindings[ $id ];
 		}
 
-		// Note: binding is not for functions, methods, or callable strings.
-		// Give up.
+		$count = count( $output );
+
+		if ( 1 === $count ) {
+			return $output[0];
+		} elseif ( $count > 1 ) {
+			if ( $when ) {
+				foreach ( $output as $item ) {
+					if ( $item['when'] === $when ) {
+						return $item;
+					}
+				}
+			} else {
+				foreach ( $output as $item ) {
+					if ( ! $item['when'] ) {
+						return $item;
+					}
+				}
+			}
+		}
+
 		return null;
 	}
 
