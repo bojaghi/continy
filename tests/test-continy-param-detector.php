@@ -95,30 +95,75 @@ class Continy_Param_Detector_Test extends TestCase {
 	/**
 	 * Test detect method
 	 *
-	 * @return void
-	 * @dataProvider provider_detect
+	 * @param string|callable $target
+	 * @param array           $expected
+	 * @param string          $message
 	 *
+	 * @return void
 	 * @throws ReflectionException When reflection fails.
+	 * @dataProvider provider_detect
 	 */
-	public function test_detect( $target, $expected, $message = '' ): void {
+	public function test_detect( string|callable $target, array $expected, string $message = '' ): void {
 		$actual = $this->detector->detect( $target );
 
 		$this->assertEquals( $expected, $actual, $message );
 	}
 
+	/**
+	 * Provider of detect
+	 *
+	 * @return array[]
+	 */
 	protected function provider_detect(): array {
 		return array(
 			array(
-				Param_Detector_Test_Union_Param_Class::class,
+				Param_Detector_Test_Union_Param_Class::class, // target.
 				array(
 					'a' => array(
-						'type'        => 'Dependency_Class_A|string|false|null',
-						'allow_null'  => false,
+						'type'        => Dependency_Class_A::class . '|string|false|null',
+						'allow_null'  => true, // 'null' is included.
 						'default'     => null,
-						'has_default' => false,
+						'is_optional' => false,
+					),
+					'b' => array(
+						'type'        => Dependency_Class_A::class . '|string',
+						'allow_null'  => false,
+						'default'     => 'test',
+						'is_optional' => true,
+					),
+				), // $expected.
+				'Param_Detector_Test_Union_Param_Class',
+			),
+
+			array(
+				function ( $a, mixed $b, string $c = 'c', ?int $d = null ) { },
+				array(
+					'a' => array(
+						'type'        => null,
+						'allow_null'  => true,
+						'default'     => null,
+						'is_optional' => false,
+					),
+					'b' => array(
+						'type'        => 'mixed',
+						'allow_null'  => true,
+						'default'     => null,
+						'is_optional' => false,
+					),
+					'c' => array(
+						'type'        => 'string',
+						'allow_null'  => false,
+						'default'     => 'c',
+						'is_optional' => true,
+					),
+					'd' => array(
+						'type'        => 'int',
+						'allow_null'  => true,
+						'default'     => null,
+						'is_optional' => true,
 					),
 				),
-				'Param_Detector_Test_Union_Param_Class',
+				'Anonymous function 1',
 			),
 		);
 	}

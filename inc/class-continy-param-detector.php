@@ -13,9 +13,7 @@ use Closure;
 use ReflectionClass;
 use ReflectionException;
 use ReflectionFunction;
-use ReflectionIntersectionType;
 use ReflectionMethod;
-use ReflectionNamedType;
 use ReflectionParameter;
 use ReflectionUnionType;
 
@@ -58,28 +56,17 @@ class Continy_Param_Detector {
 	 * @throws ReflectionException Thrown when reflection fails.
 	 */
 	public function detect_union_type( ReflectionParameter $param ): array {
-		$types  = $param->getType()->getTypes();
-		$output = array();
+		$buffered = array_map(
+			fn( $type ) => $type->getName(), // In union type, '?' prefix is invalid.
+			$param->getType()->getTypes(),
+		);
 
-		if ( $param->isOptional() ) {
-			$default_value      = $param->getDefaultValue();
-			$default_value_type = is_scalar( $default_value ) ? gettype( $default_value ) : get_class( $default_value );
-
-			if ( array_any( $types, fn( $t ) => $t->getName() === $default_value_type ) ) {
-				$output = array(
-					'type'  => is_scalar( $default_value ) || is_object( $default_value ) ? 'value' : 'data_type',
-					'value' => $default_value,
-				);
-			}
-		} else {
-			$buffered = array_map( fn( $type ) => self::strip_question_mark( $type ), $types );
-			$output   = array(
-				'type'  => 'data_type',
-				'value' => implode( '|', $buffered ),
-			);
-		}
-
-		return $output;
+		return array(
+			'type'        => implode( '|', $buffered ),
+			'allow_null'  => $param->allowsNull(),
+			'default'     => $param->isOptional() ? $param->getDefaultValue() : null,
+			'is_optional' => $param->isOptional(),
+		);
 	}
 
 	/**
@@ -91,37 +78,12 @@ class Continy_Param_Detector {
 	 * @throws ReflectionException Thrown when detection fails.
 	 */
 	public function detect_singular_type( ReflectionParameter $param ): array {
-		$type = $param->getType();
-
-		if ( $type->isBuiltin() ) {
-			if ( $param->isOptional() ) {
-				$output = array(
-					'type'  => 'value',
-					'value' => $param->getDefaultValue(),
-				);
-			} elseif ( $param->allowsNull() ) {
-				$output = array(
-					'type'  => 'value',
-					'value' => null,
-				);
-			} else {
-				throw new ReflectionException(
-					esc_html(
-						sprintf(
-							"Error while detecting parameter '%s'. Built-in type should have default value or can be nullish, or invoke an explicit injection function.",
-							$param->getName(),
-						),
-					),
-				);
-			}
-		} else {
-			$output = array(
-				'type'  => 'data_type',
-				'value' => self::strip_question_mark( $type ),
-			);
-		}
-
-		return $output;
+		return array(
+			'type'        => $param->getType()?->getName(),
+			'allow_null'  => $param->allowsNull(),
+			'default'     => $param->isOptional() ? $param->getDefaultValue() : null,
+			'is_optional' => $param->isOptional(),
+		);
 	}
 
 	/**
@@ -163,19 +125,5 @@ class Continy_Param_Detector {
 	 */
 	protected static function is_class_method( array|callable|string $target ): bool {
 		return is_array( $target ) && 2 === count( $target );
-	}
-
-	/**
-	 * Strip out heading question mark
-	 *
-	 * @param ReflectionIntersectionType|ReflectionNamedType|ReflectionUnionType $type Input type.
-	 *
-	 * @return string
-	 */
-	protected static function strip_question_mark(
-		ReflectionIntersectionType|ReflectionNamedType|ReflectionUnionType $type,
-	): string {
-		return $type->allowsNull() && str_starts_with( $type->getName(), '?' ) ?
-			substr( $type->getName(), 1 ) : $type->getName();
 	}
 }

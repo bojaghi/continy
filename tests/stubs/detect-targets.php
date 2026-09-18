@@ -20,6 +20,7 @@ if ( ! class_exists( 'Union_Param_Class' ) ) {
 	class Param_Detector_Test_Union_Param_Class {
 		public function __construct(
 			Dependency_Class_A|string|false|null $a,
+			Dependency_Class_A|string $b = 'test',
 		) {
 		}
 	}
