@@ -25,14 +25,14 @@ class Continy_Param_Detector {
 	/**
 	 * Detect parameter
 	 *
-	 * @param array|callable|string $target Target to detect.
-	 *                                      Target can be class FQN, class method, function, ond so on.
+	 * @param array|callable|string|object $target Target to detect.
+	 *                                             Target can be class FQN, class method, function, ond so on.
 	 *
 	 * @return array
 	 *
 	 * @throws ReflectionException Thrown when reflection fails.
 	 */
-	public function detect( array|callable|string $target ): array {
+	public function detect( array|callable|string|object $target ): array {
 		$params = $this->get_parameters( $target );
 		$output = array();
 
@@ -126,13 +126,13 @@ class Continy_Param_Detector {
 	/**
 	 * Get parameter of $target
 	 *
-	 * @param array|callable|string $target Target to inspect.
+	 * @param array|callable|string|object $target Target to inspect.
 	 *
 	 * @return ReflectionParameter[]
 	 * @throws ReflectionException Thrown when reflection fails.
 	 */
-	public function get_parameters( array|callable|string $target ): array {
-		if ( is_string( $target ) && class_exists( $target ) ) {
+	public function get_parameters( array|callable|string|object $target ): array {
+		if ( ( is_string( $target ) && class_exists( $target ) ) || is_object( $target ) ) {
 			$ref    = new ReflectionClass( $target );
 			$cons   = $ref->getConstructor();
 			$params = $cons ? $cons->getParameters() : array();
