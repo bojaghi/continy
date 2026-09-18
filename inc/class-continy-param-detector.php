@@ -9,6 +9,7 @@ declare( strict_types=1 );
 
 namespace Bojaghi\Continy;
 
+use Closure;
 use ReflectionClass;
 use ReflectionException;
 use ReflectionFunction;
@@ -132,7 +133,10 @@ class Continy_Param_Detector {
 	 * @throws ReflectionException Thrown when reflection fails.
 	 */
 	public function get_parameters( array|callable|string|object $target ): array {
-		if ( ( is_string( $target ) && class_exists( $target ) ) || is_object( $target ) ) {
+		if ( $target instanceof Closure ) {
+			$ref    = new ReflectionFunction( $target );
+			$params = $ref->getParameters();
+		} elseif ( ( is_string( $target ) && class_exists( $target ) ) || is_object( $target ) ) {
 			$ref    = new ReflectionClass( $target );
 			$cons   = $ref->getConstructor();
 			$params = $cons ? $cons->getParameters() : array();

@@ -8,7 +8,9 @@
 
 /.idea/
 /.vscode/
+/node_modules/
 /tests/wp-core/
 /tests/wp-tests/
 /vendor/
 /composer.lock
+/package-lock.json
