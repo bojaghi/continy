@@ -110,8 +110,16 @@ class Continy implements Container {
 		$this->instantiation_stack = array();
 	}
 
+	/**
+	 * @template T
+	 * @param string|class-string<T> $id QCN or ID that continy can find the binding.
+	 *
+	 * @return mixed
+	 * @throws Continy_Exception
+	 * @throws Continy_Not_Found_Exception
+	 */
 	public function get( string $id ) {
-		// TODO: Implement get() method.
+		return $this->instantiate( $id );
 	}
 
 	/**
@@ -122,7 +130,7 @@ class Continy implements Container {
 	 * @return bool
 	 */
 	public function has( string $id ): bool {
-		return isset( $this->resolved[ $id ] );
+		return isset( $this->storage[ $id ] );
 	}
 
 	public function call( callable|array|string $to_call, mixed $args = null ): mixed {
@@ -137,15 +145,16 @@ class Continy implements Container {
 	/**
 	 * Create and spawn object by its id
 	 *
-	 * @param string     $id    Identifier of object.
-	 * @param mixed|null $args  Object argument.
-	 * @param bool       $reuse Reuse the object, or create a new one.
+	 * @template T
+	 * @param string|class-string<T> $id    Identifier of object.
+	 * @param mixed|null             $args  Object argument.
+	 * @param bool|null              $reuse Reuse the object, or create a new one.
 	 *
 	 * @return mixed
 	 * @throws Continy_Exception When Continy is not fully initialized.
 	 * @throws Continy_Not_Found_Exception When object not found.
 	 */
-	public function instantiate( string $id, mixed $args = null, bool $reuse = true ): mixed {
+	public function instantiate( string $id, mixed $args = null, bool|null $reuse = null ): mixed {
 		if ( ! $this->is_initialized ) {
 			throw new Continy_Exception( esc_html( 'Continy is not initialized yet.' ) );
 		}
@@ -156,11 +165,13 @@ class Continy implements Container {
 		}
 
 		// Verbatim.
-		if ( array_key_exists( 'verbatim', $binding ) ) {
+		if ( isset( $binding['verbatim'] ) ) {
 			return $binding['verbatim'];
 		}
 
-		$reuse = $args['reuse'] ?? $reuse;
+		if ( is_null( $reuse ) ) {
+			$reuse = $binding['reuse'];
+		}
 
 		// Re-use
 		if ( $reuse && $this->has( $id ) ) {
@@ -169,68 +180,71 @@ class Continy implements Container {
 
 		// Creation
 		$class_name = $binding['as'];
-		if ( ! $class_name || ! class_exists( $class_name ) ) {
-			throw new Continy_Not_Found_Exception( esc_html( "'$id', class not found." ) );
-		}
 
-		if ( $args ) {
-			// $args may be callable, array, or string, provided by arguments.
-			if ( is_callable( $args ) ) {
-				// In this case, the return value of the callable should be an instance.
-				$instance = call_user_func_array( $args, array( $id, $class_name, $this ) );
+		if ( ! $class_name ) {
+			throw new Continy_Not_Found_Exception( esc_html( "'$id', Invalid 'as' value." ) );
+		} elseif ( is_string( $class_name ) && class_exists( $class_name ) ) {
+			if ( $args ) {
+				// $args may be callable, array, or string, provided by arguments.
+				if ( is_callable( $args ) ) {
+					// In this case, the return value of the callable should be an instance.
+					$instance = call_user_func_array( $args, array( $id, $class_name, $this ) );
+				} else {
+					throw new Continy_Not_Found_Exception( esc_html( "'$id', unsupported \$args type." ) );
+				}
 			} else {
-				throw new Continy_Not_Found_Exception( esc_html( "'$id', unsupported \$args type." ) );
-			}
-		} else {
-			// $args is null, retrieved from $binding.
-			$params = $this->detect_params( $class_name );
+				// $args is null, retrieved from $binding.
+				$params = $this->detect_params( $class_name );
 
-			if ( is_callable( $args ) ) {
-				$args = call_user_func_array( $args, array( $id, $class_name, $this ) );
-			} elseif ( is_string( $args ) ) {
-				$args = Helper::load_config( $args );
-			} else {
-				$args = array();
-			}
+				if ( is_callable( $args ) ) {
+					$args = call_user_func_array( $args, array( $id, $class_name, $this ) );
+				} elseif ( is_string( $args ) ) {
+					$args = Helper::load_config( $args );
+				} else {
+					$args = array();
+				}
 
-			if ( ! is_array( $args ) ) {
-				throw new Continy_Exception( esc_html( "'$id', unsupported \$args input." ) );
-			}
+				if ( ! is_array( $args ) ) {
+					throw new Continy_Exception( esc_html( "'$id', unsupported \$args input." ) );
+				}
 
-			// Make sure that $args is an indexed array.
-			if ( ! empty( $args ) && array_is_list( $args ) ) {
-				$args_len   = count( $args );
-				$params_len = count( $params );
+				// Make sure that $args is an indexed array.
+				if ( ! empty( $args ) && array_is_list( $args ) ) {
+					$args_len   = count( $args );
+					$params_len = count( $params );
 
-				if ( $args_len <= $params_len ) {
-					$args_copy = array();
-					foreach ( array_keys( $params ) as $i => $key ) {
-						if ( $i < $args_len ) {
-							$args_copy[ $key ] = $args[ $i ];
+					if ( $args_len <= $params_len ) {
+						$args_copy = array();
+						foreach ( array_keys( $params ) as $i => $key ) {
+							if ( $i < $args_len ) {
+								$args_copy[ $key ] = $args[ $i ];
+							}
 						}
+						$args = $args_copy;
 					}
-					$args = $args_copy;
+				}
+
+				if ( in_array( $class_name, $this->instantiation_stack ) ) {
+					throw new Continy_Exception( esc_html( 'Class name loop found: ' . $class_name ) );
+				}
+
+				$this->instantiation_stack[] = $class_name;
+
+				$args = $this->complete_constructor( $params, $args );
+
+				$instance = new $class_name( ... $args );
+
+				$this->instantiation_stack = array_slice( $this->instantiation_stack, 0, -1 );
+			}
+
+			if ( $reuse ) {
+				$this->storage[ $id ] = $instance;
+				if ( $id !== $class_name ) {
+					$this->storage[ $class_name ] = $instance;
 				}
 			}
-
-			if ( in_array( $class_name, $this->instantiation_stack ) ) {
-				throw new Continy_Exception( esc_html( 'Class name loop found: ' . $class_name ) );
-			}
-
-			$this->instantiation_stack[] = $class_name;
-
-			$args = $this->complete_constructor( $params, $args );
-
-			$instance = new $class_name( ... $args );
-
-			$this->instantiation_stack = array_slice( $this->instantiation_stack, 0, -1 );
-		}
-
-		if ( $reuse ) {
-			$this->storage[ $id ] = $instance;
-			if ( $id !== $class_name ) {
-				$this->storage[ $class_name ] = $instance;
-			}
+		} else {
+			$instance = $class_name;
 		}
 
 		return $instance;
@@ -284,15 +298,30 @@ class Continy implements Container {
 					$setup,
 				);
 			} else {
-				$setup = array_intersect_key( array( ...$default, ...$setup ), $default );
+				$setup = array( array_intersect_key( array( ...$default, ...$setup ), $default ) );
 			}
 
 			// Fill resolved property.
 			foreach ( $setup as $item ) {
-				if ( isset( $item['as'] ) ) {
-					throw new Continy_Exception( 'You are trying to map multiple aliases to one class.' );
+				if ( $item['as'] ) {
+					$key = $item['as'];
+				} elseif ( $item['verbatim'] && is_string( $item['verbatim'] ) ) {
+					$key = "{continy-verbatim}:" . $alias;
+				} else {
+					throw new Continy_Exception( esc_html( "'as', or 'verbatim' is required." ) );
 				}
-				$this->resolved[ $item['as'] ] = $alias;
+
+				if ( is_object( $key ) ) {
+					$key = (string) spl_object_id( $key );
+				} else {
+					$key = (string) $key;
+				}
+
+				if ( isset( $this->resolved[ $key ] ) ) {
+					throw new Continy_Exception( 'You are trying to map multiple aliases to one object.' );
+				}
+
+				$this->resolved[ $key ] = $alias;
 			}
 
 			$this->bindings[ $alias ] = $setup;
@@ -391,41 +420,37 @@ class Continy implements Container {
 	/**
 	 * Get binding by given $id
 	 *
-	 * @param string $id   bound item to search for.
-	 * @param string $when 'when' filter.
+	 * @param string $id bound item to search for.
 	 *
 	 * @return array|null
 	 */
 	protected function get_binding( string $id ): ?array {
 		$output = null;
 
-		if ( isset( $this->resolved[ $id ] ) && $id !== $this->resolved[ $id ] ) {
+		if ( isset( $this->bindings[ $id ] ) ) {
+			$output = $this->bindings[ $id ];
+		} elseif ( isset( $this->resolved[ $id ] ) ) {
 			// $id may be a class string, and may be already resolved.
 			// Set to its alias.
-			$id = $this->resolved[ $id ];
-		}
+			$output = $this->bindings[ $this->resolved[ $id ] ];
+		} else {
+			// We cannot find the binding. Add dynamically.
+			// $id can be a class string that autoloader can include right now.
+			if ( class_exists( $id ) ) {
+				$this->resolved[ $id ] = $id;
+				$this->bindings[ $id ] = array(
+					array(
+						...static::get_default_binding_array(),
+						'as' => $id,
+					),
+				);
 
-		if ( isset( $this->bindings[ $id ] ) ) {
-			// id is mapped to bindings.
-			$output = $this->bindings[ $id ];
-		}
-
-		// We cannot find the binding. Add dynamically.
-		// $id can be a class string that autoloader can include right now.
-		if ( class_exists( $id ) ) {
-			$this->resolved[ $id ] = $id;
-			$this->bindings[ $id ] = array(
-				array(
-					...static::get_default_binding_array(),
-					'as' => $id,
-				),
-			);
-
-			$output = $this->bindings[ $id ];
+				$output = $this->bindings[ $id ];
+			}
 		}
 
 		$when  = array_last( $this->instantiation_stack );
-		$count = count( $output );
+		$count = $output ? count( $output ) : 0;
 
 		if ( 1 === $count ) {
 			return $output[0];
@@ -445,7 +470,7 @@ class Continy implements Container {
 			}
 		}
 
-		return null;
+		return null; // Give up.
 	}
 
 	/**

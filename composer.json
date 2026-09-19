@@ -16,7 +16,7 @@
   ],
   "require": {
     "php": ">=8.3",
-    "bojaghi/contract": "^2.0.2",
+    "bojaghi/contract": "^2.0.3",
     "bojaghi/helper": "^2.0"
   },
   "require-dev": {
