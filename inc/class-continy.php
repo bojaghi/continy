@@ -11,11 +11,7 @@ namespace Bojaghi\Continy;
 
 use Bojaghi\Contract\Container;
 use Bojaghi\Helper\Helper;
-use ReflectionClass;
 use ReflectionException;
-use ReflectionFunction;
-use ReflectionMethod;
-use ReflectionUnionType;
 
 /**
  * Continy container class
@@ -67,6 +63,30 @@ class Continy implements Container {
 	protected array $storage;
 
 	/**
+	 * Flag for initialization.
+	 *
+	 * @var bool
+	 */
+	protected bool $is_initialized;
+
+	/**
+	 * Explicit types: thes types cannot be referenced dynamically.
+	 */
+	protected array $explicit_types = array(
+		'bool',
+		'int',
+		'float',
+		'double',
+		'string',
+		'array',
+		'object',
+		'resource',
+		'callable',
+	);
+
+	protected array $instantiation_stack;
+
+	/**
 	 * Continy constructor
 	 *
 	 * @param array $args Setup array.
@@ -76,13 +96,18 @@ class Continy implements Container {
 	 * @see docs/factory-setup.md
 	 */
 	public function __construct( array $args = array() ) {
-		$this->bindings = array();
-		$this->detector = new Continy_Param_Detector();
-		$this->resolved = array( __CLASS__ => 'continy' );
-		$this->storage  = array( __CLASS__ => $this );
+		$this->is_initialized = false;
+		$this->bindings       = array();
+		$this->detector       = new Continy_Param_Detector();
+		$this->resolved       = array( __CLASS__ => 'continy' );
+		$this->storage        = array( __CLASS__ => $this );
 
 		$this->initialize_bindings( $args['bindings'] ?? array() );
 		$this->initialize_modules( $args['modules'] ?? array() );
+
+		// Now it is ready!
+		$this->is_initialized      = true;
+		$this->instantiation_stack = array();
 	}
 
 	public function get( string $id ) {
@@ -117,11 +142,15 @@ class Continy implements Container {
 	 * @param bool       $reuse Reuse the object, or create a new one.
 	 *
 	 * @return mixed
+	 * @throws Continy_Exception When Continy is not fully initialized.
 	 * @throws Continy_Not_Found_Exception When object not found.
 	 */
 	public function instantiate( string $id, mixed $args = null, bool $reuse = true ): mixed {
-		$binding = $this->get_binding( $id );
+		if ( ! $this->is_initialized ) {
+			throw new Continy_Exception( esc_html( 'Continy is not initialized yet.' ) );
+		}
 
+		$binding = $this->get_binding( $id );
 		if ( ! $binding ) {
 			throw new Continy_Not_Found_Exception( esc_html( "'$id' does not have binding." ) );
 		}
@@ -139,9 +168,7 @@ class Continy implements Container {
 		}
 
 		// Creation
-		$instance = null;
-
-		$class_name = $this->get_binding_as( $binding );
+		$class_name = $binding['as'];
 		if ( ! $class_name || ! class_exists( $class_name ) ) {
 			throw new Continy_Not_Found_Exception( esc_html( "'$id', class not found." ) );
 		}
@@ -162,11 +189,41 @@ class Continy implements Container {
 				$args = call_user_func_array( $args, array( $id, $class_name, $this ) );
 			} elseif ( is_string( $args ) ) {
 				$args = Helper::load_config( $args );
+			} else {
+				$args = array();
 			}
 
-			// complete $args. TODO
+			if ( ! is_array( $args ) ) {
+				throw new Continy_Exception( esc_html( "'$id', unsupported \$args input." ) );
+			}
+
+			// Make sure that $args is an indexed array.
+			if ( ! empty( $args ) && array_is_list( $args ) ) {
+				$args_len   = count( $args );
+				$params_len = count( $params );
+
+				if ( $args_len <= $params_len ) {
+					$args_copy = array();
+					foreach ( array_keys( $params ) as $i => $key ) {
+						if ( $i < $args_len ) {
+							$args_copy[ $key ] = $args[ $i ];
+						}
+					}
+					$args = $args_copy;
+				}
+			}
+
+			if ( in_array( $class_name, $this->instantiation_stack ) ) {
+				throw new Continy_Exception( esc_html( 'Class name loop found: ' . $class_name ) );
+			}
+
+			$this->instantiation_stack[] = $class_name;
+
+			$args = $this->complete_constructor( $params, $args );
 
 			$instance = new $class_name( ... $args );
+
+			$this->instantiation_stack = array_slice( $this->instantiation_stack, 0, -1 );
 		}
 
 		if ( $reuse ) {
@@ -316,25 +373,6 @@ class Continy implements Container {
 	}
 
 	/**
-	 * Get binding 'as' value.
-	 *
-	 * @param array  $binding Binding array.
-	 * @param string $when    'when' filter.
-	 *
-	 * @return string
-	 *
-	 */
-	protected function get_binding_as( array $binding, string $when = '' ): string {
-		if ( 1 === count( $binding ) ) {
-			$binding = array_shift( $binding );
-		} elseif ( $when ) {
-			$binding = array_find( $binding, fn( $b ) => $b['when'] === $when );
-		}
-
-		return $binding['as'] ?? '';
-	}
-
-	/**
 	 * @param callable|array|string $target
 	 *
 	 * @return array|null
@@ -355,7 +393,7 @@ class Continy implements Container {
 	 *
 	 * @return array|null
 	 */
-	protected function get_binding( string $id, string $when = '' ): ?array {
+	protected function get_binding( string $id ): ?array {
 		$output = null;
 
 		if ( isset( $this->resolved[ $id ] ) && $id !== $this->resolved[ $id ] ) {
@@ -383,6 +421,7 @@ class Continy implements Container {
 			$output = $this->bindings[ $id ];
 		}
 
+		$when  = array_last( $this->instantiation_stack );
 		$count = count( $output );
 
 		if ( 1 === $count ) {
@@ -404,6 +443,104 @@ class Continy implements Container {
 		}
 
 		return null;
+	}
+
+	/**
+	 * Complete constructor arguments.
+	 *
+	 * @param array $params
+	 * @param array $args
+	 *
+	 * @return array
+	 * @throws Continy_Exception When reference fails.
+	 * @throws Continy_Not_Found_Exception When the type not found.
+	 */
+	protected function complete_constructor( array $params, array $args ): array {
+		if ( count( $params ) <= count( $args ) ) {
+			return array_slice( $args, 0, count( $params ) );
+		}
+
+		foreach ( $params as $key => $param ) {
+			/**
+			 * @var array{
+			 *     type: string,
+			 *     allow_null: bool,
+			 *     default: mixed,
+			 *     is_optional: bool,
+			 * } $param Parameter informaion.
+			 */
+
+			if ( array_key_exists( $key, $args ) ) {
+				continue;
+			}
+
+			$type        = explode( '|', $param['type'] );
+			$allow_null  = $param['allow_null'];
+			$default     = $param['default'];
+			$is_optional = $param['is_optional'];
+
+			if ( count( $type ) > 1 ) {
+				// Union types
+				$result = null;
+				$done   = false;
+
+				foreach ( $type as $t ) {
+					if ( 'true' === $t || 'false' === $t ) {
+						$result = 'true' === $t;
+						$done   = true;
+					} elseif ( 'null' === $t ) {
+						$result = null;
+						$done   = true;
+					} elseif ( in_array( $t, $this->explicit_types ) ) {
+						if ( $is_optional ) {
+							$result = $default;
+							$done   = true;
+						} elseif ( $allow_null ) {
+							$result = null;
+							$done   = true;
+						}
+					} else {
+						try {
+							$result = $this->instantiate( $t );
+						} catch ( Continy_Exception $_ ) {
+							$result = null;
+							$done   = false;
+						}
+					}
+					if ( $done ) {
+						break;
+					}
+				}
+
+				if ( ! $done ) {
+					throw new Continy_Exception(
+						esc_html( sprintf( "Could not instantiate union type '%s'.", $param['type'] ) ),
+					);
+				}
+
+				$args[ $key ] = $result;
+			} else {
+				$type = $type[0];
+
+				if ( 'true' === $type || 'false' === $type ) {
+					$args[ $key ] = 'true' === $type;
+				} elseif ( 'null' === $type ) {
+					$args[ $key ] = null;
+				} elseif ( in_array( $type, $this->explicit_types ) ) {
+					if ( $is_optional ) {
+						$args[ $key ] = $default;
+					} elseif ( $allow_null ) {
+						$args[ $key ] = null;
+					} else {
+						throw new Continy_Exception( esc_html( $type . ' cannot be referenced.' ) );
+					}
+				} else {
+					$args[ $key ] = $this->instantiate( $type );
+				}
+			}
+		}
+
+		return $args;
 	}
 
 	/**
