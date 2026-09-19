@@ -279,9 +279,12 @@ class Continy implements Container {
 			}
 
 			if ( array_is_list( $setup ) ) {
-				$setup = array_map( fn( $s ) => wp_parse_args( $s, $default ), $setup );
+				$setup = array_map(
+					fn( $s ) => array_intersect_key( array( ...$default, ...$setup ), $default ),
+					$setup,
+				);
 			} else {
-				$setup = array( wp_parse_args( $setup, $default ) );
+				$setup = array_intersect_key( array( ...$default, ...$setup ), $default );
 			}
 
 			// Fill resolved property.
