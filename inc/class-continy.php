@@ -120,11 +120,12 @@ class Continy implements Container {
 		$this->sub_storage    = array();
 
 		$this->initialize_bindings( $args['bindings'] ?? array() );
-		$this->initialize_modules( $args['modules'] ?? array() );
 
 		// Now it is ready!
 		$this->is_initialized    = true;
 		$this->instantiate_stack = array();
+
+		$this->initialize_modules( $args['modules'] ?? array() );
 	}
 
 	/**

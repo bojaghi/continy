@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2.0.1
+
+2026-09-27
+
+- Fix initialization flag setup timing.
+
 ## 2.0.0-p1
 
 2026-09-25
