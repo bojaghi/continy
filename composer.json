@@ -29,7 +29,7 @@
   },
   "scripts": {
   },
-  "version": "2.0.1",
+  "version": "2.0.2",
   "config": {
     "allow-plugins": {
       "alleyinteractive/composer-wordpress-autoloader": true,

@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 2.0.2
+
+- Add PSR container interface support.
+
 ## 2.0.1
 
 2026-09-27

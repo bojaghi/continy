@@ -96,6 +96,8 @@ return array(
         ),
         // 액션의 훅 이름들입니다. 해당 액션이 동작할 때 Continy가 바인딩된 객체를 생성할 것입니다.
         'init' => array(
+            // 'init' 은 파라미터를 받지 않습니다. 이 경우 0을 명시해야 합니다.
+            'accepted_args'     => 0,   
             // 모듈 우선순위입니다. 
             Continy::PR_DEFAULT => array(
                 // 모듈 목록

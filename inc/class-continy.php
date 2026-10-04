@@ -11,6 +11,7 @@ namespace Bojaghi\Continy;
 
 use Bojaghi\Contract\Container;
 use Bojaghi\Helper\Helper;
+use Psr\Container\ContainerInterface;
 use ReflectionException;
 
 /**
@@ -18,7 +19,7 @@ use ReflectionException;
  */
 class Continy implements Container {
 	/* Priority constants */
-	public const PR_URGENT    = -10000;
+	public const PR_URGENT    = - 10000;
 	public const PR_VERY_HIGH = 1;
 	public const PR_HIGHER    = 5;
 	public const PR_HIGH      = 7;
@@ -115,8 +116,8 @@ class Continy implements Container {
 		$this->is_initialized = false;
 		$this->bindings       = array();
 		$this->detector       = new Continy_Param_Detector();
-		$this->resolved       = array( __CLASS__ => 'continy' );
-		$this->storage        = array( __CLASS__ => $this );
+		$this->resolved       = array();
+		$this->storage        = array();
 		$this->sub_storage    = array();
 
 		$this->initialize_bindings( $args['bindings'] ?? array() );
@@ -411,6 +412,11 @@ class Continy implements Container {
 	 */
 	protected function initialize_bindings( array $bindings_setup ): void {
 		$default = self::get_default_binding_array();
+
+		$bindings_setup = array(
+			ContainerInterface::class => __CLASS__,
+			...$bindings_setup,
+		);
 
 		// Handle setup items.
 		foreach ( $bindings_setup as $alias => $setup ) {
