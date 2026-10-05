@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 2.0.3
+
+- Support mixing binding 'args' with arguments from do_action().
+- Update documentation.
+
 ## 2.0.2
 
 - Add PSR container interface support.

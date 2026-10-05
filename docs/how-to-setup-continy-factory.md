@@ -53,20 +53,29 @@ if (!defined('ABSPATH')) {
 
 return array(
     'bindings' => array(
-        'foo'       => Foo::class,     // 단순 바인딩
-        IBar::class => BarImpl::class, // 인터페이스 - 구현
+        Sample::class,                 // 굳이 이럴 필요는 없겠지만, FQCN만 넣는 것도 가능합니다.
+        'foo'       => Foo::class,     // 단순한 바인딩입니다.
+        IBar::class => BarImpl::class, // 인터페이스와 구현의 매핑으로도 가능합니다.
+        
+        // 좀 더 복잡한 예시힙니다. 클래스의 생성자에 명시적으로 파라미터를 지정합니다.
         'baz'       => array(
-            'as'   => Baz::class,                  // 필수
-            'args' => array( 'x' => 8, 'y' => 3 ), // 배열을 리턴
+            'as'   => Baz::class,                  // 필수.
+            'args' => array( 'x' => 8, 'y' => 3 ), // 배열을 리턴. 순차배열, 연관배열 모두 가능합니다.
         ),
+
+        // 다른 패턴입니다. 생성자를 콜백 함수로 전달할 수도 있습니다.         
         'buf'       => array(
             'as'    => Buf::class, // 필수
             'args'  => function ( string $id, string $class_name, Continy $continy ) {
-                // item has 'when', 'as', 'reuse', 'args' (recursive)
-                return [];
+                // $id: 'buf'
+                // $class_name: Buf::class
+                // $continy: Continy 인스턴스
+                return array();
             },
-            'reuse' => false,                                      // 호출시 매번 인스턴스를 새로 생성, 캐싱되지 않음
+            'reuse' => false, // 호출시 매번 인스턴스를 새로 생성, 캐싱되지 않음
         ),
+        
+        // 조건에 따라 다른 인스턴스를 제공하도록 설정합니다.
         ICond::class => array(
            // 조건적 바인딩
            array(
@@ -80,20 +89,25 @@ return array(
                'args' => array( 'value' => 'y' ),  // B 클래스에 전달할 생성자
            ),
            array(
-               'as'   => Cond_Fallback::class,     // A, B 클래스 이외의 경우
+               'as'   => Cond_Fallback::class,     // A, B 클래스 이외의 경우. 'when' 키가 없습니다.
                'args' => array( 'value' => 'z' ),
            ),
         ),
+        
+        // className 앨리어스에 verbatim을 사용했습니다. 어떤 처리도 하지 않고 그대로 리턴합니다.
         'className' => array(
             'verbatim' => 'Namespace\\Namespaced\\ClassName',
         ),
-    ),   
+    ),
+    
+    // 모듈 설정. 
     'modules' => array(
         // '_' 키는 액션 콜백에 사용되는 모듈이 아닌, 플러그인 실행 시점에 바로 생성되는 모듈을 선언하기 위해 사용합니다.
         '_' => array(
             'foo',
             IBar::class, // IBar::class 의 실제 구현인 BarImpl::class 객체가 생성될 것입니다.
         ),
+        
         // 액션의 훅 이름들입니다. 해당 액션이 동작할 때 Continy가 바인딩된 객체를 생성할 것입니다.
         'init' => array(
             // 'init' 은 파라미터를 받지 않습니다. 이 경우 0을 명시해야 합니다.
@@ -107,6 +121,7 @@ return array(
                 function () { /* ... */ }, // 직접 함수로도 구현 가능합니다
             ),
         ),
+        
         'my_init_hook' => array(
             'accepted_args' => 3, // add_action()의 $accepted_args 기본값은 '1'이지만, 그렇지 않은 경우 맞춰 주어야 합니다.
             Continy::PR_LOW => array( /* ... */ ),
@@ -136,11 +151,13 @@ return array(
         - 연관 배열은 인수와 키 이름으로 대응합니다.
         - 순차 배열은 순서대로 생성자의 인수와 대응됩니다.
     - 콜백. 콜백 함수는 3개의 인자를 가집니다.
-        - 첫번째 인자는 바인딩하는 식별자 id 입니다. 
+        - 첫번째 인자는 바인딩하는 식별자 id 입니다.
         - 두번째 인수는 실제로 바인딩한 'as' 값입니다.
         - 세번째 인수는 Continy 인스턴스입니다.
         - 반드시 배열을 리턴해야 합니다.
-    - 최대한 Continy가 알아낼 수 있는 값을 이용해 의존성 주입을 시도합니다.
+    - 최대한 Continy가 알아낼 수 있는 값을 이용해 의존성 주입을 시도합니다. 즉, args에 최대한 제공할 수 있을 만큼만 넣고 반드시 생성자 수에 맞출
+      필요는 없습니다. 이 경우 Continy는 args에 최대한 제공할 수 있는 값을 넣습니다.
+    - 배열은 연관배열이어도 되고, 순차배열이어도 됩니다. 순차배열일 경우 생성자의 순서에 주의해야 합니다.
 - `when`: 어떤 객체가 이 식별자의 인스턴스를 요청하는지 조건적으로 대응할 수 있습니다.
 - `reuse`: 기본값은 true지만, false로 입력할 경우, 매번 새롭게 인스턴스를 생성합니다.
 - `verbatim`: `as`는 FQCN로서 인스턴스화, 혹은 호출 가능한 객체로서 호출되는대 비해,
@@ -158,12 +175,13 @@ return array(
 이 연관 배열의 값은 재차 연관 배열 타입이며 다음 키를 허용합니다.
 
 - `accepted_args`: do_action () 함수의 'accepted_args' 인수에 사용됩니다. 생략하면 1입니다.
+  init 같이 **인수 개수가 0인 경우에는 ** '0'으로 명시하는 것에 주의하시기 바랍니다. 그렇지 않으면 모듈 생성자 파라미터 첫번째로 공백이 입력되는
+  버그가 발생할 수 있습니다.
 - 정수:
     - do_action () 함수의 'priority' 인수에 대응됩니다.
-    - 이 키의 값은 순차 배열입니다.
-    - 호출할 모듈의 식별자를 나열합니다.
+    - 이 키로 매핑되는 값은 순차 배열 형식입니다. 호출할 모듈의 식별자를 나열합니다.
 
-단, 키 중 '_' (언더스코어)는 특별한 의미를 가집니다.
+위 예와 같이 '_' (언더스코어) 키는 특별한 의미를 가집니다.
 플러그인이 로딩되는 시점에 바로 인스턴스화 되는 모듈을 지정하기 위해 사용됩니다.
 이 키의 값은 연관 배열이 아닌, **순차 배열**입니다.
 
@@ -171,7 +189,7 @@ return array(
 
 ### 별명과 실체는 동일
 
-Continy에서 바인딩 된 별명(alias)은 그 클래스의 FQCN과 동일한 의미를 지닙니다.
+Continy에서 바인딩 된 별명 (alias)은 그 클래스의 FQCN과 동일한 의미를 지닙니다.
 예를 들어, bindings 설정으로 아래처럼 입력하였다고 합니다.
 
 ```php
@@ -196,5 +214,5 @@ $f = $continy->get(Foo::class);
 
 ### 중복 매핑 금지
 
-별명을 중복으로 가질 수 없습니다. 그러므로 `Foo` 를래스에 'foo'라는 별명을 붙였으면,
+별명을 중복으로 가질 수 없습니다. 그러므로 `Foo` 를래스에 `foo`라는 별명을 붙였으면,
 다른 별명으로 `Foo` 를래스를 가리킬 수 없습니다.

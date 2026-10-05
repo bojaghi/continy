@@ -174,27 +174,12 @@ class Continy implements Container {
 		}
 
 		// Detect and merge $args.
-		$params     = $this->detect_params( $parsed );
-		$params_len = count( $params );
-		$args       = (array) $args;
-		$args_len   = count( $args );
-
-		if ( $args_len < $params_len && array_is_list( $args ) ) {
-			$args_copy = array();
-			foreach ( array_keys( $params ) as $i => $key ) {
-				if ( $i < $args_len ) {
-					$args_copy[ $key ] = $args[ $i ];
-				}
-			}
-			$args = $args_copy;
-		}
-
-		$args = $this->complete_constructor( $params, $args );
+		$params = $this->detect_params( $parsed );
+		$args   = self::ensure_assoc_array( $args, array_keys( $params ) );
+		$args   = $this->complete_constructor( $params, $args );
 
 		if ( ! is_callable( $parsed ) ) {
 			throw new Continy_Exception( '$to_call is not callable.' );
-		} elseif ( ! is_array( $args ) ) {
-			throw new Continy_Exception( '$args is not callable nor an array.' );
 		}
 
 		return call_user_func_array( $parsed, $args );
@@ -307,36 +292,21 @@ class Continy implements Container {
 			}
 
 			if ( ! $instance ) {
-				// $args is null, retrieved from $binding.
+				// Detect the constructor parameters.
 				$params = $this->detect_params( $class_name );
 
-				if ( $args ) {
-					$args = (array) $args;
-				} elseif ( is_callable( $binding['args'] ) ) {
-					$args = call_user_func_array( $binding['args'], array( $id, $class_name, $this ) );
-				} else {
-					$args = (array) ( $binding['args'] ?? array() );
+				// To be an array.
+				$args = (array) $args;
+
+				if ( is_callable( $binding['args'] ) ) {
+					$bound_args = call_user_func_array( $binding['args'], array( $id, $class_name, $this ) );
+					$args       = array( ...$args, ...$bound_args );
+				} elseif ( isset( $binding['args'] ) ) {
+					$args = array( ...$args, ...(array) $binding['args'] );
 				}
 
-				if ( ! is_array( $args ) ) {
-					throw new Continy_Exception( esc_html( "'$id', unsupported \$args input." ) );
-				}
-
-				// Make sure that $args is an indexed array.
-				if ( ! empty( $args ) && array_is_list( $args ) ) {
-					$args_len   = count( $args );
-					$params_len = count( $params );
-
-					if ( $args_len <= $params_len ) {
-						$args_copy = array();
-						foreach ( array_keys( $params ) as $i => $key ) {
-							if ( $i < $args_len ) {
-								$args_copy[ $key ] = $args[ $i ];
-							}
-						}
-						$args = $args_copy;
-					}
-				}
+				// Make sure that $args is an associative array.
+				$args = self::ensure_assoc_array( $args, array_keys( $params ) );
 
 				if ( in_array( $class_name, $this->instantiate_stack, true ) ) {
 					throw new Continy_Exception( esc_html( 'Class name loop found: ' . $class_name ) );
@@ -413,6 +383,7 @@ class Continy implements Container {
 	protected function initialize_bindings( array $bindings_setup ): void {
 		$default = self::get_default_binding_array();
 
+		// Continy should be registered as default.
 		$bindings_setup = array(
 			ContainerInterface::class => __CLASS__,
 			...$bindings_setup,
@@ -420,6 +391,11 @@ class Continy implements Container {
 
 		// Handle setup items.
 		foreach ( $bindings_setup as $alias => $setup ) {
+			// Fix alias.
+			if ( is_int( $alias ) ) {
+				$alias = $setup['as'];
+			}
+
 			if ( is_string( $setup ) ) {
 				$setup = array(
 					...$default,
@@ -727,6 +703,42 @@ class Continy implements Container {
 		}
 
 		return $args;
+	}
+
+	/**
+	 * Make sure that all array items are key-valued, associative.
+	 *
+	 * @param array    $arr    The array to check.
+	 * @param string[] $params The reference keys to check.
+	 *
+	 * @return array
+	 */
+	private static function ensure_assoc_array( array $arr, array $params ): array {
+		$len_input  = count( $arr );
+		$len_params = count( $arr );
+
+		if ( $len_input <= $len_params && self::has_numeric_index( $arr ) ) {
+			$copied = array();
+			foreach ( $params as $i => $param ) {
+				if ( $i < $len_params ) {
+					$copied[ $param ] = $arr[ $i ] ?? $arr[ $param ];
+				}
+			}
+			$arr = $copied;
+		}
+
+		return $arr;
+	}
+
+	/**
+	 * Check if an array has an integer-based index.
+	 *
+	 * @param array $input The array to check.
+	 *
+	 * @return bool
+	 */
+	private static function has_numeric_index( array $input ): bool {
+		return array_any( array_keys( $input ), fn( $v ) => is_numeric( $v ) );
 	}
 
 	/**
